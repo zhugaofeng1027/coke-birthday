@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "lucide": "^0.468.0",
+    "phaser": "^3.90.0",
     "qrcode": "^1.5.4"
   },
   "devDependencies": {

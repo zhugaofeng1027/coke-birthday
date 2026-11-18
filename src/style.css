@@ -172,7 +172,7 @@ h1 { font-size: 27px; line-height: 1.5; font-weight: 700; overflow-wrap: anywher
 .scrap-hotspot { position: absolute; transform: translate(-50%, -50%) rotate(-8deg); display: grid; place-items: center; height: 42px; width: 42px; background: #fff0b9; border: 1px solid #d8c289; box-shadow: 0 4px 0 #74856820; border-radius: 3px; color: #b39558; animation: note-bob 2s ease-in-out infinite; }
 .scrap-hotspot.collected { background: #c5d6b1; color: #6d8c61; opacity: .8; animation: none; }
 .scrap-hotspot svg { width: 20px; height: 20px; }
-@keyframes note-bob { 50% { transform: translate(-50%, -63%) rotate(5deg); } }
+@keyframes note-bob { 50% { box-shadow: 0 0 0 6px #fff0b950, 0 4px 0 #74856820; background: #fff8d9; } }
 .scrap-status { display: flex; justify-content: center; gap: 20px; margin-bottom: 16px; }
 .scrap-status > span { display: flex; gap: 5px; align-items: center; font-size: 11px; color: #a9af9d; }
 .scrap-status > span.found { color: #79966c; }

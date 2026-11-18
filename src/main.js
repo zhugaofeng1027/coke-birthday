@@ -4,14 +4,21 @@ import {
   ArrowRight, ArrowLeft, Volume2, VolumeX, QrCode, Settings, RotateCcw, Lightbulb,
   HandHeart, Download, Upload, Copy, Droplets, Music, Sun, NotebookPen,
   PartyPopper, CakeSlice, BookHeart, Undo2, ShoppingBag, Info, Play,
+  Hand, Scissors, ChevronUp, ChevronDown, ChevronLeft, ChevronRight, Timer, Flame,
+  Smartphone, RotateCw, Maximize, Minimize,
+  Triangle, Leaf, Logs, Bug,
 } from 'lucide';
 import QRCode from 'qrcode';
-import { CHAPTERS, FRUITS, CUSTOMERS, RECIPE, MEMORIES, TOKEN_ORDER, newPuzzle, checkPuzzle, normalizeConfig, normalizeProgress } from './game.js';
-import { art, startKitchen } from './art.js';
+import { CHAPTERS, normalizeConfig, normalizeProgress } from './game.js';
+import { art } from './art.js';
+import { startCooking } from './kitchen-engine.js';
+import { DISHES, INGREDIENTS, CHOP_SECONDS, createKitchen, actionLabel, itemName, canChop, nearestStation, plateProgress, nextTask, solveKitchenPuzzle } from './cooking.js';
+import { THEMES, SPICES } from './themes.js';
 import './style.css';
+import './cooking.css';
 
-const iconSet = { ChefHat, Cherry, Sandwich, CookingPot, Camera, LampDesk, Gift, Heart, Circle, Square, Star, Moon, Flower2, Sparkles, Utensils, Check, Lock, X, ArrowRight, ArrowLeft, Volume2, VolumeX, QrCode, Settings, RotateCcw, Lightbulb, HandHeart, Download, Upload, Copy, Droplets, Music, Sun, NotebookPen, PartyPopper, CakeSlice, BookHeart, Undo2, ShoppingBag, Info, Play };
-const KEY = 'birthday-bistro-v1';
+const iconSet = { ChefHat, Cherry, Sandwich, CookingPot, Camera, LampDesk, Gift, Heart, Circle, Square, Star, Moon, Flower2, Sparkles, Utensils, Check, Lock, X, ArrowRight, ArrowLeft, Volume2, VolumeX, QrCode, Settings, RotateCcw, Lightbulb, HandHeart, Download, Upload, Copy, Droplets, Music, Sun, NotebookPen, PartyPopper, CakeSlice, BookHeart, Undo2, ShoppingBag, Info, Play, Hand, Scissors, ChevronUp, ChevronDown, ChevronLeft, ChevronRight, Timer, Flame, Smartphone, RotateCw, Maximize, Minimize, Triangle, Leaf, Logs, Bug };
+const KEY = 'birthday-bistro-cooking-v2';
 const CONFIG_KEY = 'birthday-bistro-config-v1';
 const app = document.querySelector('#app');
 const esc = (value) => String(value).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
@@ -21,24 +28,60 @@ const read = (key) => { try { return JSON.parse(localStorage.getItem(key) || 'nu
 const write = (key, value) => { try { localStorage.setItem(key, JSON.stringify(value)); } catch { toast('当前浏览器无法保存进度，请保持页面打开。'); } };
 let baseConfig;
 let config;
-const progress = normalizeProgress(read(KEY));
+const debug = import.meta.env.DEV && new URLSearchParams(window.location.search).get('debug') === '1';
+const progress = debug ? normalizeProgress(null) : normalizeProgress(read(KEY));
+const requestedChapter = Number(new URLSearchParams(window.location.search).get('chapter'));
+const initialChapter = debug && Number.isInteger(requestedChapter) && requestedChapter >= 1 && requestedChapter <= 6
+  ? requestedChapter - 1 : Math.min(progress.completed.length, 5);
 const state = {
-  chapter: Math.min(progress.completed.length, 5), completed: progress.completed,
-  finished: progress.finished, puzzle: newPuzzle(), hint: 0, solved: false,
+  debug,
+  chapter: initialChapter, completed: progress.completed,
+  finished: progress.finished, kitchen: createKitchen(initialChapter), hint: 0, solved: false,
   feedback: '', feedbackKind: '', muted: true, ending: progress.completed.length === 6, candlesOut: progress.finished,
 };
-let stopScene = () => {};
+let kitchenController = null;
 let modalCleanup = () => {};
 let modalReturnFocus = null;
 let toastTimeout;
 let audioContext;
 let musicTimer;
 let noteStep = 0;
-let activeGift = 0;
 const GIFT_ART = ['candy', 'charm', 'snacks', 'film', 'candle', 'perfume'];
+const layout = new URLSearchParams(window.location.search).get('layout');
+const landscapeMedia = window.matchMedia('(orientation: landscape) and (max-height: 600px), (orientation: landscape) and (pointer: coarse)');
+const portraitMedia = window.matchMedia('(orientation: portrait) and (pointer: coarse) and (hover: none)');
+
+function syncPlayMode() {
+  const forced = layout === 'landscape' || layout === 'desktop';
+  const landscape = layout === 'landscape' || (layout !== 'desktop' && landscapeMedia.matches);
+  const rotate = !state.ending && !forced && portraitMedia.matches;
+  document.body.classList.toggle('landscape-play', !state.ending && landscape);
+  document.body.classList.toggle('forced-landscape', layout === 'landscape');
+  document.body.classList.toggle('needs-rotation', rotate);
+  const prompt = document.querySelector('.rotation-prompt');
+  if (prompt) prompt.hidden = !rotate;
+  document.querySelectorAll('.site-header, .app-main').forEach(el => { el.inert = rotate; });
+  kitchenController?.setLandscape(landscape);
+  syncKitchenPause();
+}
+function syncKitchenPause() {
+  kitchenController?.setPaused(document.body.classList.contains('modal-open') || document.body.classList.contains('needs-rotation'));
+}
+function syncFullscreenButton() {
+  const button = document.querySelector('[data-action="fullscreen"]');
+  if (!button) return;
+  const active = !!document.fullscreenElement;
+  button.innerHTML = icon(active ? 'minimize' : 'maximize');
+  button.setAttribute('aria-label', active ? '退出全屏' : '全屏游玩');
+  button.dataset.tooltip = active ? '退出全屏' : '全屏游玩';
+  icons();
+}
+landscapeMedia.addEventListener('change', syncPlayMode);
+portraitMedia.addEventListener('change', syncPlayMode);
+document.addEventListener('fullscreenchange', syncFullscreenButton);
 
 function icons() { createIcons({ icons: iconSet, attrs: { 'stroke-width': 1.7 } }); }
-function save() { write(KEY, { completed: state.completed, finished: state.finished }); }
+function save() { if (!state.debug) write(KEY, { completed: state.completed, finished: state.finished }); }
 function toast(message) {
   let el = document.querySelector('#toast');
   if (!el) { el = document.createElement('div'); el.id = 'toast'; el.setAttribute('role', 'status'); document.body.append(el); }
@@ -74,7 +117,10 @@ function toggleMusic() {
 }
 
 function render() {
-  stopScene();
+  kitchenController?.destroy(); kitchenController = null;
+  syncDebugURL();
+  document.body.classList.toggle('cooking-mode', !state.ending);
+  document.body.dataset.playMode = state.debug ? 'debug' : 'story';
   const ch = CHAPTERS[state.chapter];
   app.innerHTML = `
     <header class="site-header">
@@ -83,8 +129,12 @@ function render() {
         <span><strong>生日小厨房<span class="brand-dot">.</span></strong><small>BIRTHDAY BISTRO</small></span>
       </a>
       <span class="header-dedication">今晚，只接你这一单。</span>
+      ${!state.ending ? `<div class="landscape-order"><span>${state.debug ? '开发调试 · ' : ''}第 ${state.chapter + 1} 站 · ${state.completed.length} / 6 份心意</span><strong>${CHAPTERS[state.chapter].short}</strong></div>` : ''}
       <div class="header-actions">
-        <span class="open-badge"><span></span> 只为你营业</span>
+        <span class="open-badge"><span></span> ${state.debug ? '开发调试' : '只为你营业'}</span>
+        ${import.meta.env.DEV ? `<button class="icon-button ${state.debug ? 'debug-active' : ''}" data-action="debug-menu" aria-label="关卡调试" aria-pressed="${state.debug}" data-tooltip="关卡调试">${icon('bug')}</button>` : ''}
+        ${import.meta.env.DEV ? `<button class="icon-button desktop-preview-button" data-action="phone-preview" aria-label="手机横屏预览" data-tooltip="手机横屏预览">${icon('smartphone')}</button>` : ''}
+        ${!state.ending ? `<button class="icon-button landscape-tool" data-action="hint-shortcut" aria-label="下一步提示" data-tooltip="下一步提示">${icon('lightbulb')}</button><button class="icon-button landscape-tool" data-action="album-shortcut" aria-label="我的礼物簿" data-tooltip="我的礼物簿">${icon('book-heart')}</button><button class="icon-button landscape-tool" data-action="fullscreen" aria-label="${document.fullscreenElement ? '退出全屏' : '全屏游玩'}" data-tooltip="${document.fullscreenElement ? '退出全屏' : '全屏游玩'}" ${!document.fullscreenEnabled ? 'hidden' : ''}>${icon(document.fullscreenElement ? 'minimize' : 'maximize')}</button>` : ''}
         <button class="icon-button" data-action="music" aria-label="${state.muted ? '播放背景音乐' : '关闭背景音乐'}" aria-pressed="${!state.muted}" data-tooltip="背景音乐">${icon(state.muted ? 'volume-x' : 'volume-2')}</button>
         <button class="icon-button" data-action="share" aria-label="手机扫码玩" data-tooltip="手机扫码玩">${icon('qr-code')}</button>
         <button class="icon-button" data-action="settings" aria-label="编辑生日心意" data-tooltip="编辑生日心意">${icon('settings')}</button>
@@ -100,7 +150,7 @@ function render() {
         <aside class="menu-column">
           <div class="section-label"><span>生日特别菜单</span>${icon('utensils')}</div>
           <nav class="chapter-nav" aria-label="关卡菜单">${CHAPTERS.map((c, i) => {
-            const done = state.completed.includes(i); const available = i <= state.completed.length;
+            const done = state.completed.includes(i); const available = state.debug || i <= state.completed.length;
             return `<button class="chapter ${i === state.chapter ? 'active' : ''} ${done ? 'complete' : ''}" data-action="chapter" data-index="${i}" ${!available ? 'disabled' : ''} ${i === state.chapter ? 'aria-current="step"' : ''}>
               <span class="chapter-illustration" style="--chapter-color:${c.color}">${icon(c.icon)}</span>
               <span class="chapter-copy"><small>0${i + 1} ${done ? '· 已送达' : i === state.chapter ? '· 制作中' : ''}</small><strong>${c.short}</strong></span>
@@ -110,99 +160,147 @@ function render() {
           <div class="menu-bottom"><div class="tiny-progress"><span style="width:${state.completed.length / 6 * 100}%"></span></div><p><strong>${state.completed.length}</strong> / 6 份心意已送达</p><button class="text-button" data-action="album">${icon('book-heart')} 我的礼物簿</button></div>
           <div class="sidebar-note">${icon('heart')} 今天的快乐，不用赶时间。</div>
         </aside>
-        <section class="game-column" aria-label="厨房游戏">
-          <div class="scene-heading"><div><span class="chapter-tag">CHAPTER 0${state.chapter + 1}</span><h2>${ch.title}</h2></div><span class="scene-weather">${icon(state.chapter >= 4 ? 'moon' : 'sun')} ${state.chapter >= 4 ? '温柔的夜晚' : '晴 · 适合过生日'}</span></div>
-          <div class="kitchen-scene">
-            <canvas id="kitchen" role="img" aria-label="原创生日厨房：窗边是料理台，主厨和小助手正在为生日晚餐备菜。"></canvas>
-            <div class="scene-location"><span class="live-dot"></span>${ch.station}</div>
-            <div class="scene-speech">${state.chapter === 2 ? '配方？我明明收得很好呀…' : state.chapter === 4 ? '今天辛苦啦，慢慢来。' : state.chapter === 5 ? '最后的惊喜，准备好了吗？' : '主厨，我来给你打下手！'}<span></span></div>
-            ${state.chapter === 2 ? scrapsHTML() : ''}
-            <div class="scene-bottom"><span>${icon('heart')} LOVE IS THE SECRET INGREDIENT</span><span>EST. JUST FOR YOU</span></div>
-          </div>
-          <section class="workbench" aria-label="关卡操作台">
-            <div class="workbench-title"><h3>${workbenchTitle()}</h3><button class="text-button" data-action="clear" ${state.solved ? 'disabled' : ''}>${icon('undo-2')} 重来</button></div>
-            ${puzzleHTML()}
-            <div class="feedback ${state.feedbackKind}" role="status" aria-live="polite">${state.feedback ? `${icon(state.feedbackKind === 'success' ? 'check' : 'heart')} ${esc(state.feedback)}` : ''}</div>
-          </section>
+        <section class="game-column" aria-label="实时厨房游戏">
+          <div class="scene-heading"><div><span class="chapter-tag">0${state.chapter + 1} · ${THEMES[state.chapter].name}</span><h2>${DISHES[state.chapter].name}</h2></div><button class="text-button" data-action="confirm-retry" aria-label="重新制作这道菜">${icon('rotate-ccw')}重新做</button></div>
+          <div class="mobile-recipe">${recipePartsHTML()}</div>
+          <div class="kitchen-scene" id="kitchen-host"></div>
+          <div class="kitchen-feedback" id="kitchen-feedback" role="status" aria-live="polite">${esc(state.kitchen.message)}</div>
+          ${controlsHTML()}
+          <button class="primary-button birthday-note-button full-width" data-action="serve" ${!state.solved && !state.completed.includes(state.chapter) ? 'hidden' : ''}>${icon('gift')}打开我的生日便笺${icon('arrow-right')}</button>
         </section>
         <aside class="order-column">
           <section class="order-ticket">
             <div class="ticket-top"><span>一份专属订单</span>${icon('notebook-pen')}</div>
             <div class="ticket-number">ORDER <strong>#00${state.chapter + 1}</strong></div>
-            <h3>${ch.title}</h3><p class="order-subtitle">${ch.subtitle}</p>
+            <h3>${DISHES[state.chapter].name}</h3><p class="order-subtitle">${DISHES[state.chapter].subtitle}</p>
             <div class="ticket-rule"></div>
-            <div class="recipe-label">${icon('notebook-pen')} 主厨小纸条</div>
-            <div class="clue-text">${clueHTML()}</div>
+            <div class="recipe-label">${icon('utensils')} 这道菜的小配方</div>
+            <div class="cooking-recipe">${recipePartsHTML()}</div>
+            <div class="theme-clue"><strong>${THEMES[state.chapter].title}</strong><p>${THEMES[state.chapter].clue}</p><span class="theme-progress"></span></div>
             <div class="ticket-rule"></div>
-            <div class="ticket-footer"><span>难度</span><span class="difficulty">${[0, 1, 2].map((n) => icon('heart', n === 0 ? 'filled' : '')).join('')} 刚刚好</span></div>
-            <button class="primary-button serve-button" data-action="serve">${icon(state.solved || state.completed.includes(state.chapter) ? 'gift' : 'utensils')}${state.solved || state.completed.includes(state.chapter) ? '打开我的生日便笺' : state.chapter === 5 ? '打开预约卡' : '完成，准备出餐'}${icon('arrow-right')}</button>
+            <div class="appliance-status" data-appliance="pot"><span>${icon('cooking-pot')}煮锅</span><strong>空闲</strong><div role="progressbar" aria-label="煮锅进度" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><span></span></div></div>
+            <div class="appliance-status" data-appliance="oven"><span>${icon('flame')}烤箱</span><strong>空闲</strong><div role="progressbar" aria-label="烤箱进度" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><span></span></div></div>
+            <div class="ticket-footer cooking-ticket-footer"><span>${icon('heart')} 好吃的，值得慢慢等</span><span class="plated-count">0 / ${DISHES[state.chapter].parts.length}</span></div>
           </section>
           <section class="helper-area"><div class="helper-heading"><span class="helper-avatar">${icon('chef-hat')}</span><div><strong>${esc(config.sender)}</strong><span>随时待命的副厨</span></div><span class="online-dot"></span></div>
-            <p>${state.hint ? hintText() : '配方可以慢慢研究，做错了我们就再来一次。今天没有催单哦。'}</p>
-            <button class="helper-button" data-action="hint">${icon('lightbulb')}${state.hint >= 2 ? '请小助手代班' : state.hint === 1 ? '再给一点提示' : '小助手，给点提示'}</button>
+            <p>${state.hint ? esc(nextTask(state.kitchen)) : '你负责当主厨，我负责等你。锅和烤箱会看好火候，今天没有催单哦。'}</p>
+            <button class="helper-button" data-action="hint">${icon('lightbulb')}小助手，接下来呢？</button>
           </section>
         </aside>
       </div>`}
       <footer class="site-footer"><span>用一点点胡闹，和很多很多喜欢做成。</span><span>${icon('heart')} MADE JUST FOR YOU</span></footer>
     </main>
+    <section class="rotation-prompt" aria-labelledby="rotation-title" hidden>
+      <span class="rotation-brand">${icon('chef-hat')}生日小厨房</span>
+      <div class="rotation-symbol" aria-hidden="true">${icon('smartphone')}${icon('rotate-cw')}</div>
+      <h2 id="rotation-title">把手机横过来，开饭啦。</h2>
+      <p>你的小厨房和生日惊喜，都在这里等你。</p>
+      <span class="rotation-pause">${icon('heart')}做菜进度已暂停，放心转个方向。</span>
+      ${import.meta.env.DEV ? `<button class="secondary-button" data-action="phone-preview">${icon('smartphone')}在电脑上预览</button>` : ''}
+    </section>
     <div id="modal-root"></div>`;
-  if (!state.ending) stopScene = startKitchen(document.querySelector('#kitchen'), () => state);
   icons();
+  if (!state.ending) {
+    kitchenController = startCooking(document.querySelector('#kitchen-host'), document.querySelector('.cooking-controls'), state.kitchen, {
+      onUpdate: updateCookingUI,
+      onPuzzle: openKitchenPuzzle,
+      onDelivered: () => {
+        state.solved = true;
+        if (!state.muted) playNote(659.25, .7, .04);
+        openRiddle(state.chapter);
+      },
+    });
+  }
+  syncPlayMode();
 }
 
-function workbenchTitle() {
-  return ['今日备菜 · 水果甜品碗', '客人到齐 · 分一份便当', '找回配方 · 还差几张纸条？', '时光排序 · 今天的三个瞬间', '打烊时刻 · 收好今天的忙碌', '最后一步 · 拼出你的专属邀请'][state.chapter];
+function recipePartsHTML() {
+  const hidden = state.chapter === 0 && !state.kitchen.puzzle.solved;
+  return DISHES[state.chapter].parts.map((part, index) => part.id === 'jam'
+    ? `<div class="recipe-part" data-part="${index}">${hidden ? `<span class="unknown-fruit">${icon('cherry')}</span>` : image('jam')}<span><strong>${hidden ? '神秘双果酱' : '爱心双果酱'}</strong><small>双果同锅 · 6 秒</small></span><span class="recipe-part-check">${icon('check')}</span></div>`
+    : `<div class="recipe-part" data-part="${index}">${image(part.id)}<span><strong>${INGREDIENTS[part.id].name}</strong><small>${INGREDIENTS[part.id].cut ? '切配 · ' : ''}${part.method === 'fresh' ? '新鲜装盘' : `${part.method === 'pot' ? '煮锅' : '烤箱'} ${INGREDIENTS[part.id][part.method]} 秒`}</small></span><span class="recipe-part-check">${icon('check')}</span></div>`).join('');
 }
-function slots(items, type, count, label) {
-  return `<div class="slots ${type === 'photo' ? 'photo-slots' : ''}" aria-label="${label}">${Array.from({ length: count }, (_, i) => {
-    const item = items[i];
-    return `<button class="ingredient-slot ${item ? 'has-item' : ''}" data-action="remove" data-index="${i}" ${!item || state.solved ? 'disabled' : ''} aria-label="${item ? `移除第 ${i + 1} 项` : `第 ${i + 1} 个位置，空`}">${item ? type === 'fruit' ? image(item) : type === 'recipe' ? `${icon(RECIPE.find(r => r.id === item).icon)}<small>${RECIPE.find(r => r.id === item).name}</small>` : type === 'photo' ? `${image(item)}<small>${MEMORIES.find(m => m.id === item).title}</small>` : icon(CHAPTERS[item].token) : `<span class="slot-number">0${i + 1}</span><span class="slot-plus">+</span>`}</button>${i < count - 1 ? `<span class="slot-arrow">${icon('arrow-right')}</span>` : ''}`;
-  }).join('')}</div>`;
+function controlsHTML() {
+  return `<section class="cooking-controls" aria-label="主厨操作区">
+    <div class="joystick" role="group" aria-label="移动摇杆">
+      ${[['up', 'chevron-up'], ['down', 'chevron-down'], ['left', 'chevron-left'], ['right', 'chevron-right']].map(([dir, symbol]) => `<button class="stick-direction ${dir}" data-move="${dir}" aria-label="向${{ up: '上', down: '下', left: '左', right: '右' }[dir]}移动">${icon(symbol)}</button>`).join('')}
+      <span class="joystick-knob" aria-hidden="true"></span>
+    </div>
+    <div class="hands-status"><small>主厨手里</small><div id="hands-icon">${icon('hand')}</div><strong id="hands-name">两手空空</strong><span id="nearby-station">走进你的小厨房</span></div>
+    <div class="cooking-buttons">
+      <button class="cook-button chop-button" data-action="kitchen-chop" aria-label="切配" disabled><span class="chop-meter"></span>${icon('scissors')}<span>按住切配</span></button>
+      <button class="cook-button interact-button" data-action="kitchen-interact" aria-label="取放与操作">${icon('hand')}<span id="interact-label">靠近工作台</span></button>
+    </div>
+  </section>`;
 }
-function puzzleHTML() {
-  const p = state.puzzle;
-  switch (state.chapter) {
-    case 0:
-      return `${slots(p.fruits, 'fruit', 3, '水果放置顺序')}<div class="ingredient-tray">${FRUITS.map(f => `<button class="ingredient" data-action="fruit" data-id="${f.id}" ${state.solved || p.fruits.includes(f.id) ? 'disabled' : ''}>${image(f.id)}<span>${f.name}</span>${p.fruits.includes(f.id) ? `<span class="ingredient-check">${icon('check')}</span>` : ''}</button>`).join('')}</div>`;
-    case 1:
-      return `<div class="customers">${CUSTOMERS.map((c, i) => `<label class="customer"><span class="customer-name">${icon(c.icon)}${c.name}</span><span class="customer-clue">${c.clue}</span>${p.customers[i] ? image(p.customers[i], 'customer-food') : '<span class="empty-plate"></span>'}<select aria-label="${c.name}的便当" data-customer="${i}" ${state.solved ? 'disabled' : ''}><option value="">选一份食物</option>${['rice', 'broccoli', 'strawberry'].map((id, j) => `<option value="${id}" ${p.customers[i] === id ? 'selected' : ''}>${['饭团', '西兰花', '草莓'][j]}</option>`).join('')}</select></label>`).join('')}</div>`;
-    case 2:
-      return `<div class="scrap-status">${[0, 1, 2].map((i) => `<span class="${p.scraps.includes(i) ? 'found' : ''}">${icon(p.scraps.includes(i) ? 'check' : 'notebook-pen')} 纸条 ${i + 1}</span>`).join('')}</div>${p.scraps.length < 3 ? `<p class="workbench-prompt">锅盖、窗边、冰箱上，好像都留着什么……</p>` : `${slots(p.recipe, 'recipe', 3, '备菜步骤')}<div class="recipe-options">${[RECIPE[2], RECIPE[0], RECIPE[1]].map(r => `<button class="secondary-button" data-action="recipe" data-id="${r.id}" ${state.solved || p.recipe.includes(r.id) ? 'disabled' : ''}>${icon(r.icon)}${r.name}</button>`).join('')}</div>`}`;
-    case 3:
-      return `${slots(p.photos, 'photo', 3, '一天的回忆顺序')}<div class="memory-tray">${[MEMORIES[2], MEMORIES[0], MEMORIES[1]].map(m => `<button class="memory-photo" data-action="photo" data-id="${m.id}" ${state.solved || p.photos.includes(m.id) ? 'disabled' : ''}>${image(m.art, '', m.caption)}<strong>${m.title}</strong><span>${m.time}</span></button>`).join('')}</div>`;
-    case 4:
-      return `<div class="ambience-controls">${[
-        ['lights', 'lamp-desk', '窗边的小灯', p.lights, ['柔光已亮', '还没开灯']],
-        ['flowers', 'flower-2', '桌上的鲜花', p.flowers, ['已经摆好', '还没摆好']],
-        ['radio', 'music', '吵闹的收音机', p.radio, ['正在播放', '已经关好']],
-      ].map(([id, name, label, checked, statuses]) => `<button class="ambience-control ${checked ? 'on' : ''}" data-action="ambience" data-id="${id}" role="switch" aria-checked="${checked}" aria-label="${label}" ${state.solved ? 'disabled' : ''}>${icon(name)}<span><strong>${label}</strong><small>${statuses[checked ? 0 : 1]}</small></span><span class="switch-track"><span></span></span></button>`).join('')}</div>`;
-    case 5:
-      return `${slots(p.tokens, 'token', 5, '预约卡的五个符号')}<div class="token-tray">${CHAPTERS.slice(0, 5).map((c, i) => `<button class="token-choice" data-action="token" data-id="${i}" aria-label="${['樱桃', '小花', '月亮', '相机', '星光'][i]}" ${state.solved || p.tokens.includes(i) ? 'disabled' : ''}>${icon(c.token)}<span>${['樱桃', '小花', '月亮', '相机', '星光'][i]}</span></button>`).join('')}</div>`;
+function updateCookingUI(k) {
+  const host = document.querySelector('#kitchen-host');
+  if (!host || state.ending) return;
+  host.dataset.theme = String(k.chapter);
+  host.dataset.puzzleSolved = String(k.puzzle.solved);
+  host.dataset.steamReady = String(k.puzzle.steam >= 2);
+  host.dataset.lampServed = String(!!k.places.lamp);
+  host.dataset.flowersServed = String(!!k.places.flowers);
+  host.dataset.spiceBag = k.spices.join(',');
+  host.dataset.brothReady = String(k.broth.length === 3);
+  host.dataset.mealSlots = (k.plating || (k.holding?.type === 'plate' ? k.holding : null))?.contents.map(i => `${i.slot}:${i.id}`).join(',') || '';
+  const revealed = String(k.puzzle.solved);
+  if (host.dataset.recipeRevealed !== revealed) {
+    host.dataset.recipeRevealed = revealed;
+    document.querySelectorAll('.mobile-recipe, .cooking-recipe').forEach(el => { el.innerHTML = recipePartsHTML(); });
+    icons();
   }
+  document.querySelector('.theme-progress').textContent = k.puzzle.solved ? '特别心意已完成' : k.puzzle.steam >= 2 ? '玻璃上出现了字' : '特别心意尚未完成';
+  const label = actionLabel(k);
+  const action = document.querySelector('#interact-label');
+  if (action.textContent !== label) action.textContent = label;
+  document.querySelector('[data-action="kitchen-interact"]').disabled = !nearestStation(k) || k.delivered;
+  document.querySelector('[data-action="kitchen-chop"]').disabled = !canChop(k);
+  document.querySelector('.chop-meter').style.height = `${k.board.progress / CHOP_SECONDS * 100}%`;
+  const holding = itemName(k.holding);
+  const name = document.querySelector('#hands-name');
+  if (name.textContent !== holding) {
+    name.textContent = holding;
+    document.querySelector('#hands-icon').innerHTML = k.holding?.type === 'ingredient' ? image(k.holding.id) : icon(k.holding?.type === 'spice' ? SPICES[k.holding.id].symbol : k.holding?.type === 'spicebag' ? 'shopping-bag' : k.holding ? 'utensils' : 'hand');
+    icons();
+  }
+  const near = nearestStation(k);
+  document.querySelector('#nearby-station').textContent = near?.type === 'puzzle' ? THEMES[k.chapter].station : near ? near.name || '新鲜食材柜' : '走进你的小厨房';
+  const feedback = document.querySelector('#kitchen-feedback');
+  if (feedback.textContent !== k.message) feedback.textContent = k.message;
+  feedback.className = `kitchen-feedback ${k.messageKind}`;
+  const plated = plateProgress(k);
+  document.querySelectorAll('[data-part]').forEach(element => element.classList.toggle('plated', plated[Number(element.dataset.part)] || k.delivered));
+  document.querySelector('.plated-count').textContent = `${k.delivered ? DISHES[k.chapter].parts.length : plated.filter(Boolean).length} / ${plated.length}`;
+  for (const method of ['pot', 'oven']) {
+    const job = k[method]; const el = document.querySelector(`[data-appliance="${method}"]`);
+    el.querySelector('strong').textContent = !job.item ? '空闲' : job.waiting ? '等待第二种水果' : job.ready ? '已熟 · 随时可取' : `还有 ${Math.ceil(job.duration - job.elapsed)} 秒`;
+    const percent = job.item ? job.elapsed / job.duration * 100 : 0;
+    el.querySelector('[role="progressbar"]').setAttribute('aria-valuenow', String(Math.round(percent)));
+    el.querySelector('[role="progressbar"] > span').style.width = `${percent}%`;
+    el.classList.toggle('ready', job.ready);
+    host.dataset[`${method}State`] = !job.item ? 'empty' : job.waiting ? 'waiting' : job.ready ? 'ready' : 'cooking';
+  }
+  host.dataset.boardState = k.board.item ? k.board.item.cut ? 'cut' : 'raw' : 'empty';
+  document.querySelector('.birthday-note-button').hidden = !k.delivered && !state.solved && !state.completed.includes(state.chapter);
+  if (state.hint) document.querySelector('.helper-area > p').textContent = nextTask(k);
 }
-function scrapsHTML() {
-  return [{ x: 11, y: 24, label: '锅盖上的纸条' }, { x: 58, y: 17, label: '窗边的纸条' }, { x: 92, y: 40, label: '冰箱上的纸条' }].map((s, i) => `<button class="scrap-hotspot ${state.puzzle.scraps.includes(i) ? 'collected' : ''}" style="left:${s.x}%;top:${s.y}%" data-action="scrap" data-id="${i}" aria-label="${s.label}" ${state.puzzle.scraps.includes(i) ? 'disabled' : ''}>${icon(state.puzzle.scraps.includes(i) ? 'check' : 'notebook-pen')}</button>`).join('');
-}
-function clueHTML() {
-  return [
-    '<p>第一口，要黄黄的。</p><p>紫色的甜，藏在中间。</p><p>红色水果，最后登场。</p><p class="clue-aside">今天，绿色水果休息一天。</p>',
-    '<p>小圆想要米饭，<br>小方喜欢绿色蔬菜，<br>小星只想吃红色水果。</p><p class="clue-aside">让每个小客人，都收到喜欢的那一份。</p>',
-    `<p>先找到厨房里散落的三张纸条。</p>${state.puzzle.scraps.length === 3 ? '<p>“洗净再下锅，慢卤才入味，最后装盘。”</p>' : '<p class="clue-aside">锅里、窗边和冰箱，各有一个小秘密。</p>'}`,
-    '<p>从早晨的出发，<br>到午后的甜点，<br>再到并肩回家的夜晚。</p><p class="clue-aside">把这一天，按时间收好。</p>',
-    '<p>留一盏温柔的灯，<br>摆一束喜欢的花，<br>让收音机也休息一下。</p><p class="clue-aside">不需要更多热闹，这样就很好。</p>',
-    '<p>月亮先来敲门，<br>樱桃带着一点甜，<br>星光悄悄跟上，<br>小花站在相机前面。</p><p class="clue-aside">五份心意，会为你打开最后一张预约卡。</p>',
-  ][state.chapter];
-}
-function hintText() {
-  const hints = [
-    ['看看水果的颜色，先找黄色的那一个。', '依次放入：香蕉 → 葡萄 → 草莓。点已放入的水果可以拿回来。'],
-    ['把每位客人提到的食物，选进对应的便当。', '小圆选饭团，小方选西兰花，小星选草莓。'],
-    ['点一下场景里正在闪动的小纸条。', '找齐三张后，按“洗净食材 → 小火慢卤 → 装盘上桌”排列。'],
-    ['照片下方的小时间，就是顺序的线索。', '一起出发 → 分一口甜 → 并肩回家。'],
-    ['灯和花要准备好，收音机要安静下来。', '小灯打开、鲜花摆好、收音机关闭。'],
-    ['按照小纸条提到的顺序，放入之前收集的符号。', '月亮 → 樱桃 → 星光 → 小花 → 相机。'],
-  ];
-  return hints[state.chapter][Math.min(state.hint - 1, 1)];
+
+function openKitchenPuzzle() {
+  const k = state.kitchen;
+  if (k.chapter !== 5) return;
+  const theme = THEMES[k.chapter];
+  let fields = '';
+  if (theme.options) {
+    fields = `<div class="puzzle-choices">${theme.options.map(id => `<label class="puzzle-choice"><input type="checkbox" name="choice" value="${id}">${SPICES[id] ? icon(SPICES[id].symbol) : image(id)}<span>${SPICES[id]?.name || INGREDIENTS[id].name}</span></label>`).join('')}</div>`;
+  } else if (theme.order) {
+    const captions = k.chapter === 5 ? ['前奏', '主调', '尾声'] : ['左边', '中间', '右边'];
+    fields = `${k.chapter === 1 ? `<fieldset class="shape-choices"><legend>饭团模具</legend>${[['circle', 'circle', '圆形'], ['triangle', 'triangle', '三角形'], ['heart', 'heart', '心形']].map(([value, symbol, name]) => `<label><input type="radio" name="shape" value="${value}" required>${icon(symbol)}<span>${name}</span></label>`).join('')}</fieldset>` : ''}
+      <div class="puzzle-order">${captions.map((caption, i) => `<label>${caption}<select class="text-input" name="slot-${i}" required><option value="">请选择</option>${DISHES[k.chapter].parts.map(part => `<option value="${part.id}">${INGREDIENTS[part.id].name}</option>`).join('')}</select></label>`).join('')}</div>
+      <p class="puzzle-carry-note">${k.holding?.type === 'plate' ? '完整餐盘已就位。' : '请端着完整料理的餐盘回来。'}</p>`;
+  }
+  const reference = theme.order ? `<div class="meal-reference ${k.chapter === 3 ? 'kitchen-photo' : ''}">${theme.order.map((id, i) => `<span>${k.chapter === 1 && i === 0 ? icon('triangle') : image(id)}<small>${k.chapter === 5 ? ['前奏', '主调', '尾声'][i] : ['左', '中', '右'][i]}</small></span>`).join('')}${k.chapter === 3 ? '<em>那天的晚餐 · 和你一起</em>' : ''}</div>` : '';
+  openModal(`<div class="puzzle-story"><span class="modal-eyebrow">KITCHEN 0${k.chapter + 1} · ${theme.name}</span><h2>${theme.title}</h2><p class="puzzle-clue">${theme.clue}</p>${reference}</div><form id="kitchen-puzzle-form">${fields}<p class="puzzle-result" role="status"></p><button class="primary-button full-width" type="submit">${icon(theme.order ? 'utensils' : 'check')}${theme.order ? k.chapter === 1 ? '塑形并整理便当' : '按餐序摆好料理' : '装好卤料袋'}</button></form>`, 'kitchen-puzzle-modal');
 }
 
 function endingHTML() {
@@ -222,6 +320,7 @@ function openModal(content, className = '') {
   const root = document.querySelector('#modal-root');
   root.innerHTML = `<div class="modal-backdrop"><section class="modal ${className}" role="dialog" aria-modal="true" aria-label="生日小厨房"><button class="modal-close icon-button" data-action="close" aria-label="关闭">${icon('x')}</button>${content}</section></div>`;
   document.body.classList.add('modal-open'); icons();
+  syncKitchenPause();
   const dialog = root.querySelector('.modal');
   dialog.querySelector('input,textarea,select,button:not(.modal-close)')?.focus();
   const trap = (event) => {
@@ -239,18 +338,18 @@ function closeModal(restore = true) {
   modalCleanup(); modalCleanup = () => {};
   const root = document.querySelector('#modal-root'); if (root) root.innerHTML = '';
   document.body.classList.remove('modal-open');
+  syncKitchenPause();
   if (restore) modalReturnFocus?.focus();
 }
 function openRiddle(index) {
-  activeGift = index;
-  openModal(`<span class="modal-eyebrow">A LITTLE SURPRISE · 0${index + 1}</span><div class="letter-icon">${icon('notebook-pen')}</div>
+  openModal(`<span class="modal-eyebrow">A LITTLE SURPRISE · 0${index + 1}</span>${index === 3 ? `<div class="kitchen-photo delivered-photo"><div>${DISHES[3].parts.map(p => image(p.id)).join('')}</div><em>今天，也想和你一起吃饭。</em></div>` : `<div class="letter-icon">${icon('notebook-pen')}</div>`}
     <h2>出餐成功，收到一封小便笺。</h2><p class="modal-subtitle">来自 ${esc(config.sender)}</p><div class="riddle-letter">${esc(config.gifts[index].riddle)}</div>
     <label class="guess-label" for="guess">猜猜，这次藏了什么？</label><input id="guess" class="text-input" maxlength="120" placeholder="写下你的猜测，或直接告诉身边的我">
     <button class="primary-button full-width" data-action="reveal" data-index="${index}">${icon('gift')}揭晓这份心意${icon('arrow-right')}</button><span class="modal-footnote">答案是什么都没关系，这份心意已经属于你。</span>`, 'letter-modal');
 }
 function revealGift(index, revisit = false) {
   if (!revisit && !state.completed.includes(index)) {
-    if (index !== state.completed.length || !state.solved) return;
+    if ((!state.debug && index !== state.completed.length) || !state.solved) return;
     state.completed.push(index); save();
     render();
     if (!state.muted) playNote(659.25, .7, .04);
@@ -263,31 +362,21 @@ function revealGift(index, revisit = false) {
 }
 function nextChapter() {
   closeModal(false);
-  if (state.completed.length === 6) { state.ending = true; state.candlesOut = false; }
-  else { state.chapter = state.completed.length; state.puzzle = newPuzzle(); state.hint = 0; state.solved = false; state.feedback = ''; }
+  clearTimeout(toastTimeout);
+  document.querySelector('#toast')?.classList.remove('visible');
+  if (state.debug ? state.chapter === 5 : state.completed.length === 6) { state.ending = true; state.candlesOut = false; }
+  else { state.chapter = state.debug ? state.chapter + 1 : state.completed.length; state.kitchen = createKitchen(state.chapter); state.hint = 0; state.solved = false; state.feedback = ''; }
   render(); window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 function serve() {
   if (state.completed.includes(state.chapter)) { revealGift(state.chapter, true); return; }
   if (state.solved) { openRiddle(state.chapter); return; }
-  if (!checkPuzzle(state.chapter, state.puzzle)) {
-    state.feedback = state.chapter === 2 && state.puzzle.scraps.length < 3 ? '还差几张小纸条，去厨房里找找吧。' : '差一点点啦，再看一眼主厨小纸条？';
-    state.feedbackKind = 'gentle'; render(); return;
-  }
-  state.solved = true; state.feedback = '完美出餐！有一份小惊喜在等你。'; state.feedbackKind = 'success';
-  render(); openRiddle(state.chapter);
+  toast('把料理装进餐盘，送到厨房右下方的出餐口吧。');
 }
 function assist() {
-  if (state.hint < 2) { state.hint++; render(); return; }
-  Object.assign(state.puzzle, [
-    { fruits: ['banana', 'grape', 'strawberry'] },
-    { customers: ['rice', 'broccoli', 'strawberry'] },
-    { scraps: [0, 1, 2], recipe: ['wash', 'simmer', 'plate'] },
-    { photos: ['morning', 'afternoon', 'night'] },
-    { lights: true, flowers: true, radio: false },
-    { tokens: [...TOKEN_ORDER] },
-  ][state.chapter]);
-  state.feedback = '小助手已经帮你准备好啦，随时可以出餐。'; state.feedbackKind = 'success'; render();
+  state.hint++;
+  updateCookingUI(state.kitchen);
+  toast(nextTask(state.kitchen));
 }
 function album() {
   openModal(`<span class="modal-eyebrow">LITTLE THINGS, BIG LOVE</span><h2>我的生日礼物簿</h2><p class="modal-subtitle">${state.completed.length} / 6 份心意，已经好好收下。</p><div class="album-grid">${config.gifts.map((g, i) => `<button class="album-item ${!state.completed.includes(i) ? 'locked' : ''}" data-action="revisit" data-index="${i}" ${!state.completed.includes(i) ? 'disabled' : ''}>${state.completed.includes(i) ? image(GIFT_ART[i]) : `<span class="album-lock">${icon('lock')}</span>`}<small>GIFT 0${i + 1}</small><strong>${state.completed.includes(i) ? esc(g.name) : '还在准备的惊喜'}</strong></button>`).join('')}</div>${state.completed.length === 6 ? '<button class="primary-button full-width" data-action="ending">赴一场生日之约</button>' : ''}`, 'album-modal');
@@ -299,6 +388,37 @@ function settings() {
     <label class="closing-label">生日结尾<textarea name="closing" rows="5" maxlength="3000" required>${esc(config.closing)}</textarea></label>
     <div class="editor-actions"><button class="secondary-button" type="button" data-action="import">${icon('upload')}导入配置</button><button class="secondary-button" type="button" data-action="export">${icon('download')}导出当前表单</button><button class="primary-button" type="submit">${icon('check')}保存到本机</button></div></form>
     <div class="settings-danger"><span>从第一道菜单重新开始</span><button class="text-button" data-action="confirm-reset">${icon('rotate-ccw')}重置游戏进度</button></div>`, 'settings-modal');
+}
+function debugMenu() {
+  if (!import.meta.env.DEV) return;
+  openModal(`<span class="modal-eyebrow">DEVELOPMENT</span><h2>关卡调试</h2>
+    <p class="modal-subtitle">调试不记录正式进度。切换关卡或模式会重开料理。</p>
+    <form id="debug-form">
+      <fieldset class="debug-modes"><legend>游玩模式</legend>
+        <label><input type="radio" name="play-mode" value="story"><span>正式闯关</span></label>
+        <label><input type="radio" name="play-mode" value="debug" checked><span>开发调试</span></label>
+      </fieldset>
+      <label class="debug-chapter">选择关卡<select class="text-input" name="debug-chapter">${THEMES.map((theme, i) => `<option value="${i}" ${state.chapter === i ? 'selected' : ''}>第 ${i + 1} 关 · ${theme.name}</option>`).join('')}</select></label>
+      <button class="primary-button full-width" type="submit">${icon('play')}进入厨房</button>
+    </form>`, 'debug-modal');
+}
+function setDebugMode(enabled) {
+  if (!import.meta.env.DEV || state.debug === enabled) return;
+  const progress = enabled ? normalizeProgress(null) : normalizeProgress(read(KEY));
+  Object.assign(state, {
+    debug: enabled, completed: progress.completed, finished: progress.finished,
+    chapter: Math.min(progress.completed.length, 5), ending: progress.completed.length === 6,
+    candlesOut: progress.finished, hint: 0, solved: false, feedback: '',
+  });
+  state.kitchen = createKitchen(state.chapter);
+}
+function syncDebugURL() {
+  if (!import.meta.env.DEV) return;
+  const url = new URL(window.location.href);
+  if (state.debug) { url.searchParams.set('debug', '1'); url.searchParams.set('chapter', String(state.chapter + 1)); }
+  else { url.searchParams.delete('debug'); url.searchParams.delete('chapter'); }
+  window.history.replaceState(null, '', url.href);
+  if (window.parent !== window) window.parent.postMessage({ type: 'birthday-bistro:play-mode', debug: state.debug, chapter: state.chapter }, window.location.origin);
 }
 function configFromForm() {
   const form = document.querySelector('#settings-form');
@@ -324,6 +444,7 @@ function importConfig() {
 }
 async function share() {
   let url = new URL(window.location.href); url.hash = '';
+  for (const key of ['layout', 'preview', 'debug', 'chapter']) url.searchParams.delete(key);
   const local = ['localhost', '127.0.0.1', '[::1]'].includes(url.hostname);
   if (local && __LAN_IP__) url.hostname = __LAN_IP__;
   openModal(`<span class="modal-eyebrow">SAVE A SEAT FOR YOU</span><h2>把小厨房装进手机</h2><p class="modal-subtitle">${local ? '手机与电脑连接同一个 Wi-Fi 后，扫码进入。' : '扫码，开启你的生日特别菜单。'}</p><div class="qr-holder"><canvas id="qr-canvas" aria-label="游戏访问地址二维码"></canvas></div><input class="text-input share-url" value="${esc(url.href)}" readonly aria-label="游戏网址"><button class="primary-button full-width" data-action="copy-url">${icon('copy')}复制游戏地址</button><p class="share-note">${local ? '这是局域网预览地址，电脑需保持运行。正式生日使用需部署为公开 HTTPS 链接。' : '游戏进度与本机编辑的留言不会跨设备同步。'}</p>`, 'share-modal');
@@ -344,43 +465,38 @@ document.addEventListener('click', async (event) => {
     case 'music': toggleMusic(); break;
     case 'share': share(); break;
     case 'settings': settings(); break;
+    case 'debug-menu': debugMenu(); break;
+    case 'phone-preview': {
+      const url = new URL(window.location.href);
+      url.searchParams.delete('layout');
+      url.searchParams.set('preview', 'phone');
+      window.location.assign(url.href);
+      break;
+    }
+    case 'fullscreen':
+      try {
+        if (document.fullscreenElement) await document.exitFullscreen();
+        else await document.documentElement.requestFullscreen();
+      } catch { toast('暂时无法进入全屏，横屏也可以直接游玩。'); }
+      break;
     case 'close': closeModal(); break;
-    case 'album': album(); break;
+    case 'album': case 'album-shortcut': album(); break;
     case 'home':
       if (state.completed.length === 6) { state.ending = true; render(); }
-      else { state.chapter = state.completed.length; state.puzzle = newPuzzle(); state.solved = false; state.feedback = ''; state.hint = 0; render(); }
+      else window.scrollTo({ top: 0, behavior: 'smooth' });
       break;
     case 'chapter':
-      if (index > state.completed.length || index < 0 || index > 5) break;
+      if ((!state.debug && index > state.completed.length) || !Number.isInteger(index) || index < 0 || index > 5) break;
       if (state.chapter === index) break;
-      state.chapter = index; state.puzzle = newPuzzle(); state.solved = false; state.feedback = ''; state.hint = 0; render(); break;
-    case 'fruit':
-      if (!state.solved && state.puzzle.fruits.length < 3 && !state.puzzle.fruits.includes(id)) { state.puzzle.fruits.push(id); state.feedback = ''; render(); }
-      else if (state.puzzle.fruits.length >= 3 && !state.solved) toast('碗里已经有三种水果啦，可以点一下取回。');
-      break;
-    case 'remove': {
-      if (state.solved) break;
-      const field = ['fruits', null, 'recipe', 'photos', null, 'tokens'][state.chapter];
-      if (field) { state.puzzle[field].splice(index, 1); state.feedback = ''; render(); }
-      break;
-    }
-    case 'scrap':
-      if (!state.puzzle.scraps.includes(Number(id))) { state.puzzle.scraps.push(Number(id)); render(); toast(['“先把食材洗干净。”', '“慢慢卤，才会香。”', '“最后装盘，给喜欢的人。”'][Number(id)]); }
-      break;
-    case 'recipe': case 'photo': case 'token': {
-      const field = { recipe: 'recipe', photo: 'photos', token: 'tokens' }[action]; const value = action === 'token' ? Number(id) : id;
-      const max = action === 'token' ? 5 : 3;
-      if (!state.solved && !state.puzzle[field].includes(value) && state.puzzle[field].length < max) { state.puzzle[field].push(value); state.feedback = ''; render(); } break;
-    }
-    case 'ambience':
-      if (!state.solved && ['lights', 'flowers', 'radio'].includes(id)) { state.puzzle[id] = !state.puzzle[id]; state.feedback = ''; render(); } break;
-    case 'clear': {
-      if (state.solved) break;
-      const scraps = [...state.puzzle.scraps]; state.puzzle = newPuzzle(); if (state.chapter === 2) state.puzzle.scraps = scraps;
-      state.feedback = ''; render(); break;
-    }
+      state.chapter = index; state.kitchen = createKitchen(index); state.solved = false; state.feedback = ''; state.hint = 0; render(); break;
+    case 'kitchen-interact': kitchenController?.interact(); break;
+    case 'kitchen-chop': break;
+    case 'confirm-retry':
+      openModal(`<span class="modal-eyebrow">ONE MORE LITTLE TRY</span><h2>重新制作这道菜？</h2><p class="modal-subtitle">清空当前台面、锅和餐盘，已经解锁的礼物会保留。</p><div class="confirm-actions"><button class="secondary-button" data-action="close">继续做这一份</button><button class="primary-button" data-action="retry-dish">${icon('rotate-ccw')}重新开始这道菜</button></div>`, 'confirm-modal'); break;
+    case 'retry-dish':
+      closeModal(false); state.kitchen = createKitchen(state.chapter); state.solved = false; state.hint = 0; render(); break;
     case 'serve': serve(); break;
-    case 'hint': assist(); break;
+    case 'hint': case 'hint-shortcut': assist(); break;
     case 'reveal': revealGift(index); break;
     case 'next': nextChapter(); break;
     case 'revisit': if (state.completed.includes(index)) revealGift(index, true); break;
@@ -395,13 +511,37 @@ document.addEventListener('click', async (event) => {
     case 'confirm-reset':
       openModal(`<span class="modal-eyebrow">A FRESH START</span><h2>重新开始今天的菜单？</h2><p class="modal-subtitle">将清除六关进度，写好的生日留言会保留。</p><div class="confirm-actions"><button class="secondary-button" data-action="close">先不重置</button><button class="primary-button" data-action="reset">${icon('rotate-ccw')}确认重新开始</button></div>`, 'confirm-modal'); break;
     case 'reset':
-      closeModal(false); Object.assign(state, { chapter: 0, completed: [], finished: false, puzzle: newPuzzle(), hint: 0, solved: false, feedback: '', ending: false, candlesOut: false }); save(); render(); toast('菜单重新准备好啦。'); break;
+      closeModal(false); Object.assign(state, { chapter: 0, completed: [], finished: false, kitchen: createKitchen(0), hint: 0, solved: false, feedback: '', ending: false, candlesOut: false }); save(); render(); toast('菜单重新准备好啦。'); break;
   }
 });
-document.addEventListener('change', (event) => {
-  if (event.target.matches('[data-customer]') && !state.solved) { state.puzzle.customers[Number(event.target.dataset.customer)] = event.target.value; state.feedback = ''; render(); }
+document.addEventListener('change', event => {
+  if (event.target.matches('#debug-form [name="play-mode"]')) {
+    document.querySelector('#debug-form [name="debug-chapter"]').disabled = event.target.value !== 'debug';
+  }
 });
 document.addEventListener('submit', (event) => {
+  if (event.target.id === 'debug-form') {
+    event.preventDefault();
+    if (!import.meta.env.DEV) return;
+    const data = new FormData(event.target);
+    const enabled = data.get('play-mode') === 'debug';
+    const chapter = Number(data.get('debug-chapter'));
+    if (enabled && (!Number.isInteger(chapter) || chapter < 0 || chapter >= THEMES.length)) return;
+    closeModal(false); setDebugMode(enabled);
+    if (enabled) Object.assign(state, { chapter, kitchen: createKitchen(chapter), ending: false, candlesOut: false, hint: 0, solved: false, feedback: '' });
+    render();
+    return;
+  }
+  if (event.target.id === 'kitchen-puzzle-form') {
+    event.preventDefault();
+    const data = new FormData(event.target);
+    const theme = THEMES[state.chapter];
+    const answer = theme.options ? data.getAll('choice') : { shape: data.get('shape'), order: [0, 1, 2].map(i => data.get(`slot-${i}`)) };
+    if (solveKitchenPuzzle(state.kitchen, answer)) {
+      closeModal(); updateCookingUI(state.kitchen); toast(THEMES[state.chapter].success);
+    } else document.querySelector('.puzzle-result').textContent = state.kitchen.message;
+    return;
+  }
   if (event.target.id !== 'settings-form') return;
   event.preventDefault(); config = configFromForm(); write(CONFIG_KEY, config); closeModal(false); render(); toast('心意已保存到当前浏览器。');
 });

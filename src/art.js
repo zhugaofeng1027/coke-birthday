@@ -42,6 +42,39 @@ export function art(type, size = 160) {
   const canvas = document.createElement('canvas'); canvas.width = size; canvas.height = size;
   const c = canvas.getContext('2d'); c.scale(size / 100, size / 100); c.translate(50, 47);
   if (['banana', 'strawberry', 'grape', 'kiwi', 'rice', 'broccoli'].includes(type)) fruit(c, type);
+  else if (type === 'tomato') {
+    ellipse(c, 0, 5, 30, 28, '#df796c'); ellipse(c, -10, -3, 9, 11, '#ef9b84');
+    c.beginPath(); c.moveTo(0, -27); c.lineTo(6, -16); c.lineTo(23, -23); c.lineTo(13, -8); c.lineTo(-3, -12); c.lineTo(-22, -20); c.lineTo(-7, -19); c.closePath(); c.fillStyle = '#7d9c6e'; c.fill();
+    line(c, [[0, -20], [3, -32]], '#7d9c6e', 4);
+  } else if (type === 'carrot') {
+    c.save(); c.rotate(.4); c.beginPath(); c.moveTo(-18, -17); c.quadraticCurveTo(0, -26, 19, -17); c.lineTo(1, 38); c.closePath(); c.fillStyle = '#e9a25c'; c.fill();
+    line(c, [[-7, -19], [-17, -35]], '#8ba373', 5); line(c, [[0, -21], [1, -40]], '#8ba373', 5); line(c, [[7, -19], [18, -34]], '#8ba373', 5);
+    line(c, [[-11, -1], [-2, 0]], '#cb8b4e', 2); line(c, [[1, 13], [8, 13]], '#cb8b4e', 2); c.restore();
+  } else if (type === 'beef') {
+    round(c, -32, -22, 65, 51, 18, '#f4d5ba'); round(c, -27, -17, 55, 41, 15, '#ca8480');
+    line(c, [[-19, -9], [-3, -2], [7, -11], [20, -8]], '#edb7a4', 3); line(c, [[-18, 12], [-2, 6], [12, 15]], '#edb7a4', 3);
+  } else if (type === 'chicken') {
+    c.save(); c.rotate(-.5); round(c, -7, 9, 14, 29, 4, '#f3e9cf'); ellipse(c, -5, 35, 9, 7, '#f3e9cf'); ellipse(c, 5, 35, 9, 7, '#f3e9cf');
+    ellipse(c, 0, -6, 25, 28, '#e9b39b'); ellipse(c, -7, -14, 10, 12, '#f1c9ac'); c.restore();
+  } else if (type === 'mushroom') {
+    round(c, -10, -5, 20, 39, 7, '#ecdfc2'); c.beginPath(); c.ellipse(0, 0, 34, 29, 0, Math.PI, Math.PI * 2); c.closePath(); c.fillStyle = '#b8a186'; c.fill(); ellipse(c, 0, 1, 34, 9, '#dfcbb0');
+    ellipse(c, -14, -12, 5, 4, '#d8c7aa'); ellipse(c, 10, -18, 6, 4, '#d8c7aa');
+  } else if (type === 'bread') {
+    round(c, -28, -30, 56, 64, 12, '#c6a072'); round(c, -23, -25, 46, 54, 9, '#f0dbad');
+    ellipse(c, -7, -2, 3, 2, '#d9c193'); ellipse(c, 10, 12, 2, 3, '#d9c193'); ellipse(c, 11, -15, 3, 2, '#d9c193');
+  }
+  else if (type === 'mint') {
+    line(c, [[-6, 32], [0, -27]], '#568975', 4);
+    [[-14, 11, -.5], [14, 0, .5], [-12, -12, -.5], [11, -23, .5]].forEach(([x, y, angle]) => {
+      c.save(); c.translate(x, y); c.rotate(angle); ellipse(c, 0, 0, 16, 9, '#79b19a'); line(c, [[-11, 0], [11, 0]], '#d0e6b7', 1.5); c.restore();
+    });
+  }
+  else if (type === 'jam') {
+    round(c, -25, -24, 50, 59, 8, '#c77699', '#a45f7d');
+    round(c, -28, -30, 56, 12, 3, '#e9cf99');
+    round(c, -20, -7, 40, 28, 3, '#fff3df');
+    heart(c, 0, 11, 22, '#bc6488');
+  }
   else if (type === 'candy') { round(c, -25, -30, 50, 66, 8, '#f1a19c'); round(c, -20, -19, 40, 41, 4, '#fff0d4'); heart(c, 0, 2, 24, '#e97b79'); line(c, [[-22, -27], [22, -27]], '#ffe7cc', 3); }
   else if (type === 'charm') { c.strokeStyle = '#c1a25d'; c.lineWidth = 4; c.beginPath(); c.arc(0, -31, 10, 0, Math.PI * 2); c.stroke(); round(c, -27, -9, 54, 48, 22, '#fdf9ef', '#d5cbb8'); ellipse(c, -19, -13, 10, 12, '#fdf9ef'); ellipse(c, 19, -13, 10, 12, '#fdf9ef'); ellipse(c, -9, 12, 2, 3, '#57514d'); ellipse(c, 9, 12, 2, 3, '#57514d'); ellipse(c, -17, 20, 5, 3, '#efb1ac'); ellipse(c, 17, 20, 5, 3, '#efb1ac'); line(c, [[-3, 21], [0, 24], [3, 21]], '#57514d', 1.5); }
   else if (type === 'snacks') { round(c, -34, -17, 68, 50, 5, '#84a395'); round(c, -37, -21, 74, 13, 3, '#b0c5ad'); round(c, -5, -21, 10, 54, 0, '#f2d59b'); heart(c, 0, -27, 22, '#e7ac83'); }
@@ -87,6 +120,8 @@ function chef(c, x, y, color, time, assistant = false) {
   round(c, -20, 43, 17, 9, 4, '#5f6d5b'); round(c, 3, 43, 17, 9, 4, '#5f6d5b');
   c.restore();
 }
+
+export { chef as drawChef, round as drawRound, ellipse as drawEllipse, line as drawLine, heart as drawHeart };
 
 export function startKitchen(canvas, getState) {
   const c = canvas.getContext('2d'); let raf; let stopped = false; let last = 0;

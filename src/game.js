@@ -1,10 +1,10 @@
 export const CHAPTERS = [
-  { title: '有点甜的开胃菜', short: '甜蜜开胃', icon: 'cherry', color: '#e57c77', token: 'cherry', subtitle: '把好心情，装进第一只碗里。', station: '水果料理台' },
-  { title: '神秘客人的便当', short: '神秘便当', icon: 'sandwich', color: '#dba745', token: 'flower-2', subtitle: '每一位小客人，都有自己的小心愿。', station: '便当工作台' },
-  { title: '深夜加餐订单', short: '深夜加餐', icon: 'cooking-pot', color: '#6e9e87', token: 'moon', subtitle: '藏起来的配方，闻起来有点幸福。', station: '深夜小灶' },
-  { title: '把今天留下来', short: '回忆拼图', icon: 'camera', color: '#7f9fbb', token: 'camera', subtitle: '有些小小的瞬间，值得好好收藏。', station: '回忆传菜口' },
-  { title: '餐厅打烊以后', short: '晚安餐厅', icon: 'lamp-desk', color: '#b594b5', token: 'sparkles', subtitle: '把忙碌关在门外，留一点温柔给自己。', station: '窗边小餐桌' },
-  { title: '今晚的特别来宾', short: '特别来宾', icon: 'gift', color: '#cd877d', token: 'heart', subtitle: '最后一张预约卡，写着最重要的名字。', station: '生日主餐桌' },
+  { short: '果园甜品站', icon: 'cherry', color: '#d67d83' },
+  { short: '口袋便当铺', icon: 'sandwich', color: '#a398be' },
+  { short: '深夜卤味档', icon: 'cooking-pot', color: '#68999d' },
+  { short: '时光食堂', icon: 'camera', color: '#86a7b2' },
+  { short: '月光香草厨房', icon: 'moon', color: '#9299bb' },
+  { short: '花园餐厅', icon: 'flower-2', color: '#ce809b' },
 ];
 
 export const FRUITS = [
@@ -29,8 +29,6 @@ export const MEMORIES = [
   { id: 'night', title: '并肩回家', time: '晚上 · 20:00', art: 'night', caption: '天黑以后，身边还是你。' },
 ];
 export const TOKEN_ORDER = [2, 0, 4, 1, 3];
-export const TOKEN_LABELS = ['樱桃', '小花', '月亮', '星光', '相机'];
-
 export function newPuzzle() {
   return { fruits: [], customers: ['', '', ''], scraps: [], recipe: [], photos: [], lights: false, flowers: false, radio: true, tokens: [] };
 }

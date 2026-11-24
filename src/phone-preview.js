@@ -60,7 +60,7 @@ if (version) {
   });
 }
 window.addEventListener('message', event => {
-  if (!import.meta.env.DEV || event.origin !== location.origin || event.source !== iframe.contentWindow || event.data?.type !== 'birthday-bistro:play-mode' || typeof event.data.debug !== 'boolean') return;
+  if (event.origin !== location.origin || event.source !== iframe.contentWindow || event.data?.type !== 'birthday-bistro:play-mode' || typeof event.data.debug !== 'boolean') return;
   const { debug, chapter, scene } = event.data;
   if (debug && (!Number.isInteger(chapter) || chapter < 0 || chapter >= 6)) return;
   if (scene != null && (!debug || !Object.hasOwn(DEBUG_SCENES, scene) || DEBUG_SCENES[scene].chapter !== chapter)) return;

@@ -25,6 +25,8 @@
 .cooking-mode .scene-heading h2 { font-size: 20px; }
 .cooking-mode .scene-heading > .text-button { min-height: 36px; }
 .cooking-mode .kitchen-scene { aspect-ratio: 840 / 720; background: #e5eadf; border: 1px solid #dce2d3; border-radius: 7px; touch-action: none; }
+.kitchen-loading { position: absolute; inset: 0; display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 8px; color: #344c40; font-size: 15px; }
+.kitchen-loading p { margin: 0; }
 .cooking-mode #kitchen { display: block; touch-action: none; }
 .mobile-recipe { display: none; }
 .queue-summary { margin: 9px 0; color: #a16644; font-size: 10px; line-height: 1.8; }

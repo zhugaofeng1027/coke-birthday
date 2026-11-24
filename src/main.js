@@ -8,10 +8,8 @@ import {
   Smartphone, RotateCw, Maximize, Minimize, Mic, Wind,
   Triangle, Leaf, Logs, Bug, Focus, SkipForward, Pause,
 } from 'lucide';
-import QRCode from 'qrcode';
 import { CHAPTERS, normalizeConfig, normalizeProgress, newFlowerRoom, advanceFlowerRoom } from './game.js';
 import { art, CHEF_SPRITES } from './art.js';
-import { startCooking } from './kitchen-engine.js';
 import { createScoreEffects } from './score-effects.js';
 import { DISHES, INGREDIENTS, CHOP_SECONDS, ORDER_POINTS, ORDER_PENALTY, CHALLENGES, createKitchen, actionLabel, itemName, canChop, nearestStation, plateProgress, nextTask, kitchenClue, solveKitchenPuzzle, adjustMemoryCamera, memoryPhotoQuality, captureMemoryPhoto, retakeMemoryPhoto, keepMemoryPhoto, PACKING_STEPS, packBento, takePackedBento } from './cooking.js';
 import { paintMemoryPhoto } from './memory-photo.js';
@@ -46,7 +44,7 @@ const write = (key, value, storage = localStorage) => { try { storage.setItem(ke
 let baseConfig;
 let config;
 const params = new URLSearchParams(window.location.search);
-const debug = import.meta.env.DEV && params.get('debug') === '1';
+const debug = params.get('debug') === '1';
 const progress = debug ? normalizeProgress(null) : normalizeProgress(read(KEY));
 const requestedChapter = Number(params.get('chapter'));
 const initialScene = debug ? readDebugScene(params) : null;
@@ -57,7 +55,7 @@ const layout = params.get('layout');
 const landscapeMedia = window.matchMedia('(orientation: landscape) and (max-height: 600px), (orientation: landscape) and (pointer: coarse)');
 const portraitMedia = window.matchMedia('(orientation: portrait) and (pointer: coarse) and (hover: none)');
 const sample = params.get('kitchen-polish');
-let bentoVersion = debug && initialChapter === 1 && ['before', 'after'].includes(sample) ? sample : null;
+let bentoVersion = import.meta.env.DEV && debug && initialChapter === 1 && ['before', 'after'].includes(sample) ? sample : null;
 function createRound(chapter, debugging) {
   if (bentoVersion && debugging && chapter === 1) {
     return createBentoSample(layout === 'landscape' || (layout !== 'desktop' && landscapeMedia.matches),
@@ -81,6 +79,8 @@ const state = {
   }),
 };
 let kitchenController = null;
+let startCooking;
+let kitchenEngineLoad;
 let scoreEffects = null;
 let pendingBirthdayNote = null;
 let openingCleanup = () => {};
@@ -149,7 +149,7 @@ function save() {
 const inFlowerRoom = () => !state.opening && state.ending && state.flowerRoom && state.flowerRoom.phase !== 'done';
 const hasFlowerGift = () => ['reveal', 'done'].includes(state.flowerRoom?.phase);
 function debugControl(className = '') {
-  return import.meta.env.DEV ? `<button class="icon-button ${state.debug ? 'debug-active' : ''} ${className}" data-action="debug-menu" aria-label="关卡调试" aria-pressed="${state.debug}" data-tooltip="关卡调试">${icon('bug')}</button>` : '';
+  return import.meta.env.DEV || state.debug ? `<button class="icon-button ${state.debug ? 'debug-active' : ''} ${className}" data-action="debug-menu" aria-label="关卡调试" aria-pressed="${state.debug}" data-tooltip="关卡调试">${icon('bug')}</button>` : '';
 }
 function toast(message) {
   let el = document.querySelector('#toast');
@@ -258,7 +258,10 @@ function render() {
     app.innerHTML = openingHTML({ mode: state.opening, sender: config.sender, muted: state.muted, icon, debugControl: debugControl() }) + '<div id="modal-root"></div>';
     openingCleanup = startOpening(app, {
       mode: state.opening, chapter: state.chapter, icon, icons,
-      onCue: beat => { if (!state.muted) playNote([392, 523.25, 659.25, 523.25][beat], .45, .025); },
+      onCue: beat => {
+        if (!state.muted) playNote([392, 523.25, 659.25, 523.25][beat], .45, .025);
+        if (beat === 1) void loadKitchenEngine().catch(() => {});
+      },
       onEnter: () => {
         if (!state.debug) {
           write(INTRO_KEY, true); write(INTRO_SESSION_KEY, true, sessionStorage);
@@ -327,7 +330,7 @@ function render() {
         <section class="game-column" aria-label="实时厨房游戏">
           <div class="scene-heading"><div><span class="chapter-tag">0${state.chapter + 1} · ${THEMES[state.chapter].name}</span><h2>${DISHES[state.chapter].name}</h2></div><button class="text-button" data-action="confirm-retry" aria-label="重新制作这道菜">${icon('rotate-ccw')}重新做</button></div>
           <div class="mobile-recipe order-queue" role="region" aria-label="滚动订单队列" tabindex="0"></div>
-          <div class="kitchen-scene" id="kitchen-host"></div>
+          <div class="kitchen-scene" id="kitchen-host">${startCooking ? '' : '<div class="kitchen-loading" role="status">厨房准备中…</div>'}</div>
           <div class="kitchen-feedback" id="kitchen-feedback" role="status" aria-live="polite">${esc(state.kitchen.message)}</div>
           ${controlsHTML()}
           <button class="primary-button birthday-note-button full-width" data-action="serve" ${!state.solved && !state.completed.includes(state.chapter) ? 'hidden' : ''}>${icon('gift')}打开我的生日便笺${icon('arrow-right')}</button>
@@ -369,7 +372,31 @@ function render() {
   icons();
   if (!state.ending) {
     scoreEffects = createScoreEffects(app);
-    kitchenController = startCooking(document.querySelector('#kitchen-host'), document.querySelector('.cooking-controls'), state.kitchen, {
+    mountKitchen();
+  }
+  syncPlayMode();
+  if (state.ending) {
+    startCandleScene();
+    startBirthdayTransformation();
+    if (state.debug && state.birthdayTransformed && !state.candlesOut) showCandleScene();
+  }
+}
+
+function loadKitchenEngine() {
+  return kitchenEngineLoad ??= import('./kitchen-engine.js').then(module => {
+    startCooking = module.startCooking;
+    return startCooking;
+  }).catch(error => {
+    kitchenEngineLoad = null;
+    throw error;
+  });
+}
+
+function mountKitchen() {
+  const host = document.querySelector('#kitchen-host');
+  const mount = start => {
+    if (!host.isConnected) return;
+    kitchenController = start(host, document.querySelector('.cooking-controls'), state.kitchen, {
       onUpdate: handleKitchenUpdate,
       onPuzzle: openKitchenPuzzle,
       onPhoto: openMemoryCamera,
@@ -377,12 +404,20 @@ function render() {
       onKitchenCue: playKitchenCue,
       onExpired: openChallengeResult,
     }, usesKitchenPolish(state.kitchen.chapter));
-  }
-  syncPlayMode();
-  if (state.ending) {
-    startCandleScene();
-    startBirthdayTransformation();
-    if (state.debug && state.birthdayTransformed && !state.candlesOut) showCandleScene();
+    host.querySelector('.kitchen-loading')?.remove();
+  };
+  if (startCooking) mount(startCooking);
+  else {
+    updateCookingUI(state.kitchen);
+    void loadKitchenEngine().then(start => {
+      if (!host.isConnected) return;
+      mount(start);
+      syncPlayMode();
+    }).catch(() => {
+      if (!host.isConnected) return;
+      const status = host.querySelector('.kitchen-loading');
+      if (status) status.innerHTML = '<p>厨房加载失败。</p><button class="secondary-button" data-action="kitchen-load-retry">重新加载</button>';
+    });
   }
 }
 
@@ -999,10 +1034,11 @@ function settings() {
     <label class="closing-label">生日结尾<textarea name="closing" rows="5" maxlength="3000" required>${esc(config.closing)}</textarea></label>
     <div class="editor-actions"><button class="secondary-button" type="button" data-action="import">${icon('upload')}导入配置</button><button class="secondary-button" type="button" data-action="export">${icon('download')}导出当前表单</button><button class="primary-button" type="submit">${icon('check')}保存到本机</button></div></form>
     <button class="text-button" data-action="opening-replay">${icon('play')}重看开场故事</button>
+    ${!import.meta.env.DEV && !state.debug ? `<button class="text-button" data-action="debug-menu">${icon('bug')}关卡调试</button>` : ''}
     <div class="settings-danger"><span>从第一道菜单重新开始</span><button class="text-button" data-action="confirm-reset">${icon('rotate-ccw')}重置游戏进度</button></div>`, 'settings-modal');
 }
 function debugMenu() {
-  if (!import.meta.env.DEV || document.querySelector('.opening[data-leaving="true"]')) return;
+  if (document.querySelector('.opening[data-leaving="true"]')) return;
   const selected = currentDebugScene() ?? state.chapter;
   openModal(`<span class="modal-eyebrow">DEVELOPMENT</span><h2>关卡调试</h2>
     <p class="modal-subtitle">调试会从所选环节的开头开始，不影响正式存档。</p>
@@ -1019,7 +1055,7 @@ function debugMenu() {
     </form>`, 'debug-modal');
 }
 function setDebugMode(enabled) {
-  if (!import.meta.env.DEV || state.debug === enabled) return;
+  if (state.debug === enabled) return;
   const progress = enabled ? normalizeProgress(null) : normalizeProgress(read(KEY));
   Object.assign(state, {
     debug: enabled, completed: progress.completed, finished: progress.finished,
@@ -1036,8 +1072,8 @@ function currentDebugScene() {
   return state.ending ? 'candles' : null;
 }
 function syncDebugURL() {
-  if (!import.meta.env.DEV) return;
   const url = new URL(window.location.href);
+  if (!import.meta.env.DEV && !state.debug && url.searchParams.get('debug') !== '1') return;
   const scene = state.debug ? currentDebugScene() : null;
   const target = { debug: state.debug, chapter: scene ? DEBUG_SCENES[scene].chapter : state.chapter, scene };
   setDebugParams(url.searchParams, target);
@@ -1069,11 +1105,15 @@ function importConfig() {
 }
 async function share() {
   let url = new URL(window.location.href); url.hash = '';
-  for (const key of ['layout', 'preview', 'debug', 'chapter', 'intro', 'kitchen-polish', 'flower-room', 'candle']) url.searchParams.delete(key);
+  for (const key of ['layout', 'preview', 'debug', 'chapter', 'intro', 'kitchen-polish', 'flower-room', 'candle', 'score-fx', 'bgm-audition']) url.searchParams.delete(key);
   const local = ['localhost', '127.0.0.1', '[::1]'].includes(url.hostname);
   if (local && __LAN_IP__) url.hostname = __LAN_IP__;
   openModal(`<span class="modal-eyebrow">SAVE A SEAT FOR YOU</span><h2>把小厨房装进手机</h2><p class="modal-subtitle">${local ? '手机与电脑连接同一个 Wi-Fi 后，扫码进入。' : '扫码，开启你的生日特别菜单。'}</p><div class="qr-holder"><canvas id="qr-canvas" aria-label="游戏访问地址二维码"></canvas></div><input class="text-input share-url" value="${esc(url.href)}" readonly aria-label="游戏网址"><button class="primary-button full-width" data-action="copy-url">${icon('copy')}复制游戏地址</button><p class="share-note">${local ? '这是局域网预览地址，电脑需保持运行。正式生日使用需部署为公开 HTTPS 链接。' : '游戏进度与本机编辑的留言不会跨设备同步。'}</p>`, 'share-modal');
-  try { await QRCode.toCanvas(document.querySelector('#qr-canvas'), url.href, { width: 240, margin: 2, color: { dark: '#344c40', light: '#ffffff' } }); } catch { toast('二维码暂时没准备好，可以复制地址打开。'); }
+  const canvas = document.querySelector('#qr-canvas');
+  try {
+    const { default: QRCode } = await import('qrcode');
+    if (canvas.isConnected) await QRCode.toCanvas(canvas, url.href, { width: 240, margin: 2, color: { dark: '#344c40', light: '#ffffff' } });
+  } catch { if (canvas.isConnected) toast('二维码暂时没准备好，可以复制地址打开。'); }
 }
 function confetti() {
   if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
@@ -1115,6 +1155,7 @@ document.addEventListener('click', async (event) => {
       if ((!state.debug && index > state.completed.length) || !Number.isInteger(index) || index < 0 || index > 5) break;
       if (state.chapter === index) break;
       state.chapter = index; state.kitchen = createKitchen(index); state.solved = false; state.feedback = ''; state.hint = 0; render(); break;
+    case 'kitchen-load-retry': window.location.reload(); break;
     case 'kitchen-interact': kitchenController?.interact(); break;
     case 'kitchen-chop': break;
     case 'bento-take':
@@ -1175,7 +1216,6 @@ document.addEventListener('change', event => {
 document.addEventListener('submit', (event) => {
   if (event.target.id === 'debug-form') {
     event.preventDefault();
-    if (!import.meta.env.DEV) return;
     const data = new FormData(event.target);
     const enabled = data.get('play-mode') === 'debug';
     const selection = data.get('debug-chapter');

@@ -1,3 +1,4 @@
+import { test as freshTest } from '@playwright/test';
 import { test, expect } from './fixtures.js';
 
 const KEY = 'birthday-bistro-cooking-v2';
@@ -165,12 +166,66 @@ test('invalid debugging chapter falls back to the first kitchen', async ({ page 
   await expect(page.locator('#kitchen-host')).toHaveAttribute('data-theme', '0');
 });
 
-test('production ignores debugging URLs and keeps chapter locks', async ({ page }, testInfo) => {
-  test.skip(!process.env.PRODUCTION_TEST_URL || testInfo.project.name !== 'desktop', 'Set a production preview URL to verify the release build.');
-  await seed(page); await page.goto(`${process.env.PRODUCTION_TEST_URL}/?debug=1&chapter=6&intro=1&flower-room=1&candle=1`);
+freshTest('production debugging is opt-in and leaves the ordinary game and shared URL unchanged', async ({ page }, testInfo) => {
+  freshTest.skip(!process.env.PRODUCTION_TEST_URL || testInfo.project.name !== 'compact-phone', 'Set a production preview URL to verify the release build.');
+  const url = `${process.env.PRODUCTION_TEST_URL}/`;
+  await seed(page);
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.goto(url);
+  await page.getByRole('button', { name: '跳过开场' }).click();
   await expect(page.locator('#kitchen-host')).toHaveAttribute('data-ready', 'true');
   await expect(page.locator('body')).toHaveAttribute('data-play-mode', 'story');
   await expect(page.locator('#kitchen-host')).toHaveAttribute('data-theme', '1');
   await expect(page.getByRole('button', { name: '关卡调试', exact: true })).toHaveCount(0);
   await expect(page.locator('[data-action="chapter"][data-index="5"]')).toBeDisabled();
+
+  await page.locator('[data-action="settings"]').click();
+  await selectDebug(page, 5);
+  await expect(page.locator('#kitchen-host')).toHaveAttribute('data-theme', '5');
+  await expect(page).toHaveURL(/debug=1.*chapter=6/);
+  await page.locator('[data-action="share"]').click();
+  const shared = new URL(await page.locator('.share-url').inputValue());
+  expect(shared.pathname).toBe(new URL(url).pathname);
+  expect(shared.search).toBe('');
+  if (new URL(url).protocol === 'https:') expect(shared.href).toBe(url);
+  await expect(page.locator('#qr-canvas')).toHaveJSProperty('width', 240);
+  await page.locator('[data-action="close"]').click();
+
+  await selectDebug(page, 'opening');
+  await expect(page.locator('.opening')).toHaveAttribute('data-stage', '0');
+  await selectDebug(page, 'flower');
+  await expect(page.locator('.flower-room-grid')).toHaveAttribute('data-phase', 'door');
+
+  await page.goto(`${url}?debug=1&candle=1`);
+  await expect(page.getByRole('button', { name: '用气息吹' })).toBeEnabled();
+  await expect(page.getByRole('button', { name: '关卡调试', exact: true })).toBeInViewport({ ratio: 1 });
+  await expect(page).toHaveURL(/debug=1.*chapter=6.*candle=1/);
+  await story(page);
+  await expect(page).toHaveURL(url);
+  await expect(page.locator('#kitchen-host')).toHaveAttribute('data-theme', '1');
+  await expect(page.locator('[data-action="chapter"][data-index="2"]')).toBeDisabled();
+  expect(await page.evaluate(key => localStorage.getItem(key), KEY)).toBe(saved);
+});
+
+freshTest('production opening renders before the kitchen bundle is requested', async ({ page }, testInfo) => {
+  freshTest.skip(!process.env.PRODUCTION_TEST_URL || testInfo.project.name !== 'compact-phone', 'Set a production preview URL to verify loading order.');
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  let engineRequested = false;
+  let release;
+  const paused = new Promise(resolve => { release = resolve; });
+  await page.route(/\/assets\/kitchen-engine-[^/]+\.js$/, async route => {
+    engineRequested = true;
+    await paused;
+    await route.continue();
+  });
+  try {
+    await page.goto(`${process.env.PRODUCTION_TEST_URL}/`);
+    await expect(page.locator('.opening')).toHaveAttribute('data-ready', 'true');
+    expect(engineRequested).toBe(false);
+    await page.getByRole('button', { name: '跳过开场' }).click();
+    await expect(page.locator('.kitchen-loading')).toBeVisible();
+    await expect.poll(() => engineRequested).toBe(true);
+  } finally { release(); }
+  await expect(page.locator('#kitchen-host')).toHaveAttribute('data-ready', 'true');
+  await expect(page.locator('.kitchen-loading')).toHaveCount(0);
 });

@@ -1,8 +1,8 @@
 const cache = new Map();
 let chefSprite;
 export const CHEF_SPRITES = {
-  cooking: new URL('./assets/birthday-chef.png', import.meta.url).href,
-  birthday: new URL('./assets/birthday-chef-party.png', import.meta.url).href,
+  cooking: new URL('./assets/birthday-chef.webp', import.meta.url).href,
+  birthday: new URL('./assets/birthday-chef-party.webp', import.meta.url).href,
 };
 const palette = { ink: '#48534b', red: '#ee7773', pink: '#f3b7b4', green: '#83ac8b', yellow: '#f2ca6b' };
 function round(c, x, y, w, h, r, fill, stroke) {

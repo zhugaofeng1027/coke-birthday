@@ -32,6 +32,7 @@ test('four opening scenes show real artwork and enter the first kitchen without 
   expect(await page.locator('.opening-canvas').evaluate(canvas => canvas.toDataURL())).not.toBe(initial);
   await page.screenshot({ path: `test-results/${testInfo.project.name}-opening-store.png` });
   await next(page);
+  await expect(page.locator('[data-action="music"]')).toHaveAttribute('aria-pressed', 'true');
   await expect(page.locator('.opening-letter')).toBeVisible();
   await expect(page.locator('.opening-letter')).toContainText('藏进了六道特别菜单里');
   await inViewport(page, '.opening-letter');
@@ -56,6 +57,7 @@ test('four opening scenes show real artwork and enter the first kitchen without 
   await page.screenshot({ path: `test-results/${testInfo.project.name}-opening-door.png` });
   await next(page);
   await expect(page.locator('#kitchen-host')).toHaveAttribute('data-ready', 'true');
+  await expect(page.locator('[data-action="music"]')).toHaveAttribute('aria-pressed', 'true');
   expect(await page.evaluate(key => JSON.parse(localStorage.getItem(key)), INTRO_KEY)).toBe(true);
   expect(await page.evaluate(key => localStorage.getItem(key), KEY)).toBeNull();
   await page.reload();
@@ -109,7 +111,6 @@ test('opening can be paused and its sound choice survives entering the kitchen',
   await expect(page.locator('.opening')).toHaveAttribute('data-stage', '0');
   await page.getByRole('button', { name: '继续播放开场', exact: true }).click();
   await expect(page.locator('.opening')).toHaveAttribute('data-stage', '1', { timeout: 4500 });
-  await page.getByRole('button', { name: '播放背景音乐', exact: true }).click();
   await expect(page.locator('[data-action="music"]')).toHaveAttribute('aria-pressed', 'true');
   await page.locator('[data-opening="skip"]').click();
   await expect(page.locator('#kitchen-host')).toHaveAttribute('data-ready', 'true');

@@ -1,5 +1,5 @@
 import {
-  createIcons, ChefHat, Cherry, Sandwich, CookingPot, Camera, LampDesk, Gift, Heart,
+  createElement, createIcons, ChefHat, Cherry, Sandwich, CookingPot, Camera, LampDesk, Gift, Heart,
   Circle, Square, Star, Moon, Flower2, Sparkles, Utensils, Check, Lock, X,
   ArrowRight, ArrowLeft, Volume2, VolumeX, QrCode, Settings, RotateCcw, Lightbulb,
   HandHeart, Download, Upload, Copy, Droplets, Music, Sun, NotebookPen,
@@ -35,6 +35,7 @@ import './opening.css';
 const iconSet = { ChefHat, Cherry, Sandwich, CookingPot, Camera, LampDesk, Gift, Heart, Circle, Square, Star, Moon, Flower2, Sparkles, Utensils, Check, Lock, X, ArrowRight, ArrowLeft, Volume2, VolumeX, QrCode, Settings, RotateCcw, Lightbulb, HandHeart, Download, Upload, Copy, Droplets, Music, Sun, NotebookPen, PartyPopper, CakeSlice, BookHeart, Undo2, ShoppingBag, Info, Play, Hand, Scissors, ChevronUp, ChevronDown, ChevronLeft, ChevronRight, Timer, Flame, Smartphone, RotateCw, Maximize, Minimize, Triangle, Leaf, Logs, Bug, Focus, SkipForward, Pause, Mic, Wind };
 const KEY = 'birthday-bistro-cooking-v2';
 const CONFIG_KEY = 'birthday-bistro-config-v1';
+const MUTE_KEY = 'birthday-bistro-muted-v1';
 const app = document.querySelector('#app');
 const esc = (value) => String(value).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 const icon = (name, cls = '') => `<i data-lucide="${name}" ${cls ? `class="${cls}"` : ''} aria-hidden="true"></i>`;
@@ -93,6 +94,7 @@ let modalCleanup = () => {};
 let modalReturnFocus = null;
 let toastTimeout;
 let audioContext;
+let wantsAudio = read(MUTE_KEY) !== true;
 let musicTimer;
 let kitchenMusic;
 let musicPaused = false;
@@ -159,9 +161,8 @@ function toast(message) {
   toastTimeout = setTimeout(() => el.classList.remove('visible'), 3200);
 }
 function playNote(frequency, duration = 0.28, volume = 0.025, delay = 0, wave = 'sine') {
+  if (state.muted || audioContext?.state !== 'running') return;
   try {
-    audioContext ||= new (window.AudioContext || window.webkitAudioContext)();
-    if (audioContext.state === 'suspended') void audioContext.resume().catch(() => {});
     const oscillator = audioContext.createOscillator(); const gain = audioContext.createGain();
     const start = audioContext.currentTime + delay;
     oscillator.type = wave; oscillator.frequency.value = frequency;
@@ -173,23 +174,22 @@ function playNote(frequency, duration = 0.28, volume = 0.025, delay = 0, wave = 
   } catch { /* Audio is optional on browsers without Web Audio. */ }
 }
 function playKitchenCue(cue) {
-  if (state.muted || document.hidden) return;
+  if (state.muted || document.hidden || audioContext?.state !== 'running') return;
   try {
-    audioContext ||= new (window.AudioContext || window.webkitAudioContext)();
-    if (audioContext.state === 'suspended') void audioContext.resume().catch(() => {});
     playKitchenSound(audioContext, cue);
   } catch { /* The game remains playable without sound. */ }
 }
 function syncMusic() {
   const room = inFlowerRoom();
   const adaptive = room || (usesKitchenPolish(state.chapter) && !state.opening && !state.ending);
-  if (state.muted || adaptive || candleListening) {
+  const silent = state.muted || audioContext?.state !== 'running' || document.hidden || candleListening;
+  if (silent || adaptive) {
     clearInterval(musicTimer);
     musicTimer = null;
   }
   if (!adaptive) {
     kitchenMusic?.setMode(null);
-    if (!state.muted && !musicTimer && !document.hidden && !candleListening) {
+    if (!silent && !musicTimer) {
       const notes = [261.63, 329.63, 392, 329.63, 293.66, 349.23, 440, 349.23, 329.63, 392, 523.25, 392, 293.66, 349.23, 392, 293.66];
       const tick = () => { if (!document.hidden) playNote(notes[noteStep++ % notes.length], .8, .025); };
       tick();
@@ -197,26 +197,50 @@ function syncMusic() {
     }
     return;
   }
-  const mode = state.muted || document.hidden || musicPaused
-    ? null : room ? 'flower' : kitchenMusicTempo(state.kitchen);
+  const mode = silent || musicPaused ? null : room ? 'flower' : kitchenMusicTempo(state.kitchen);
   kitchenMusic?.setMode(mode);
 }
-function toggleMusic() {
-  state.muted = !state.muted;
-  if (!state.muted) {
-    try {
-      audioContext ||= new (window.AudioContext || window.webkitAudioContext)();
-      if (audioContext.state !== 'running') void audioContext.resume().catch(() => {});
-      kitchenMusic ||= createKitchenMusic(audioContext);
-    } catch { /* Audio is optional on browsers without Web Audio. */ }
+function syncAudioState() {
+  const muted = !wantsAudio || audioContext?.state !== 'running';
+  if (muted !== state.muted) {
+    state.muted = muted;
+    const button = app.querySelector('[data-action="music"]');
+    if (button) {
+      const [tag, attrs, children] = muted ? VolumeX : Volume2;
+      button.replaceChildren(createElement([tag, { ...attrs, 'aria-hidden': 'true', 'stroke-width': 1.7 }, children]));
+      button.setAttribute('aria-label', muted ? '播放背景音乐' : '关闭背景音乐');
+      button.setAttribute('aria-pressed', String(!muted));
+    }
   }
   syncMusic();
-  const button = document.querySelector('[data-action="music"]');
-  button.innerHTML = icon(state.muted ? 'volume-x' : 'volume-2');
-  button.setAttribute('aria-label', state.muted ? '播放背景音乐' : '关闭背景音乐');
-  button.setAttribute('aria-pressed', String(!state.muted));
-  icons();
 }
+function unlockAudio() {
+  try {
+    if (!audioContext) {
+      const Audio = window.AudioContext || window.webkitAudioContext;
+      if (!Audio) return;
+      audioContext = new Audio();
+      audioContext.addEventListener('statechange', syncAudioState);
+      kitchenMusic = createKitchenMusic(audioContext);
+    }
+    if (audioContext.state === 'running') syncAudioState();
+    else void audioContext.resume().then(syncAudioState, () => {});
+  } catch { /* The game remains playable without sound. */ }
+}
+function toggleMusic() {
+  wantsAudio = state.muted;
+  write(MUTE_KEY, !wantsAudio);
+  if (wantsAudio) unlockAudio();
+  else syncAudioState();
+}
+function startMusicOnGesture(event) {
+  if (!event.isTrusted || !wantsAudio || !state.muted || candleListening) return;
+  if (event.target.closest?.('[data-action="music"], [data-action="wish-mic"]')) return;
+  if (event.type === 'keydown' && (event.repeat || event.altKey || event.ctrlKey || event.metaKey
+    || !['Enter', ' ', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'w', 'a', 's', 'd', 'e'].includes(event.key))) return;
+  unlockAudio();
+}
+for (const type of ['click', 'pointerup', 'keydown']) document.addEventListener(type, startMusicOnGesture, true);
 
 function updateFlowerRoom() {
   const scene = document.querySelector('#flower-room-scene');

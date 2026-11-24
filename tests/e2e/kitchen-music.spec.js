@@ -10,7 +10,7 @@ test('all six story kitchens start with their real timers and play the new sound
     const start = OscillatorNode.prototype.start;
     window.songPitches = [];
     OscillatorNode.prototype.start = function (time) {
-      window.songPitches.push(this.frequency.value);
+      if (this.context.state === 'running') window.songPitches.push(this.frequency.value);
       return start.call(this, time);
     };
   });
@@ -22,9 +22,28 @@ test('all six story kitchens start with their real timers and play the new sound
     await expect(host).toHaveAttribute('data-oven-state', 'empty');
     await expect(host).toHaveAttribute('data-board-state', 'empty');
     expect(Number(await host.getAttribute('data-time-left'))).toBeGreaterThan(200);
-    await page.locator('[data-action="music"]').click();
+    await expect(host).toHaveAttribute('data-ready', 'true');
+    expect(await page.evaluate(() => window.songPitches)).toEqual([]);
+    await page.locator('.joystick').tap();
     await expect.poll(() => page.evaluate(() => window.songPitches.some(hz => hz > 130 && hz < 132))).toBe(true);
+    await expect(page.locator('[data-action="music"]')).toHaveAttribute('aria-pressed', 'true');
   }
+});
+
+test('an explicit mute survives reload and playing again restores music', async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== 'mobile', 'Checks touch activation and mute in a fresh session.');
+  await page.goto('/');
+  const music = page.locator('[data-action="music"]');
+  await page.locator('.joystick').tap();
+  await expect(music).toHaveAttribute('aria-pressed', 'true');
+  await music.tap();
+  await expect(music).toHaveAttribute('aria-pressed', 'false');
+  await page.reload();
+  await page.locator('.joystick').tap();
+  await expect(music).toHaveAttribute('aria-pressed', 'false');
+  expect(await page.evaluate(() => localStorage.getItem('birthday-bistro-muted-v1'))).toBe('true');
+  await music.tap();
+  await expect(music).toHaveAttribute('aria-pressed', 'true');
 });
 
 test('music in the landscape audition speeds up and settles with the real order clock', async ({ page }, testInfo) => {

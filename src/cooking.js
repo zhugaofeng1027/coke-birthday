@@ -18,14 +18,15 @@ export const INGREDIENTS = {
 
 export const DISHES = [
   { name: '双果酱烤吐司', subtitle: '两种水果，同锅熬煮。冒爱心的果酱才是答案。', parts: [{ id: 'jam', method: 'pot' }, { id: 'bread', method: 'oven' }], stock: ['strawberry', 'grape', 'bread', 'kiwi'] },
-  { name: '山尖饭团便当', subtitle: '煮米饭、烤鸡肉，再按盒盖的图案塑形摆盘。', parts: [{ id: 'rice', method: 'pot' }, { id: 'chicken', method: 'oven' }, { id: 'broccoli', method: 'fresh' }], stock: ['rice', 'chicken', 'broccoli', 'carrot'] },
+  { name: '出门前的爱心便当', subtitle: '米饭、烤鸡和西兰花，打包一份路上的惦记。', parts: [{ id: 'rice', method: 'pot' }, { id: 'chicken', method: 'oven' }, { id: 'broccoli', method: 'fresh' }], stock: ['rice', 'chicken', 'broccoli', 'carrot'] },
   { name: '深夜慢卤牛肉', subtitle: '让小锅，慢慢炖出幸福的味道。', parts: [{ id: 'beef', method: 'pot' }, { id: 'carrot', method: 'pot' }], stock: ['beef', 'carrot', 'mushroom', 'bread'] },
-  { name: '照片里的双人餐', subtitle: '热汤、吐司和蘑菇，复刻一份小小的回忆。', parts: [{ id: 'tomato', method: 'pot' }, { id: 'bread', method: 'oven' }, { id: 'mushroom', method: 'fresh' }], stock: ['tomato', 'bread', 'mushroom', 'carrot'] },
+  { name: '照片里的双人餐', subtitle: '重做记忆里的晚餐，再为今天留一张照片。', parts: [{ id: 'tomato', method: 'pot' }, { id: 'bread', method: 'oven' }, { id: 'mushroom', method: 'fresh' }], stock: ['tomato', 'bread', 'mushroom', 'carrot'] },
   { name: '薄荷热茶与烤面包', subtitle: '等一壶茶的热气，留下一句喜欢。', parts: [{ id: 'mint', method: 'pot' }, { id: 'bread', method: 'oven' }], stock: ['mint', 'bread', 'mushroom', 'strawberry'] },
   { name: '生日主厨拼盘', subtitle: '前奏、主调、尾声，献给今晚最特别的你。', parts: [{ id: 'broccoli', method: 'pot' }, { id: 'beef', method: 'oven' }, { id: 'strawberry', method: 'fresh' }], stock: ['broccoli', 'beef', 'strawberry', 'mushroom'] },
 ];
 
 export const WORLD = { width: 840, height: 720 };
+export const LANDSCAPE_WORLD = { width: 1260, height: 525 };
 export const STATIONS = [
   ...Array.from({ length: 4 }, (_, i) => ({ id: `stock-${i}`, type: 'stock', x: 60 + i * 175, y: 132, w: 155, h: 104, approach: { x: 137 + i * 175, y: 279 } })),
   { id: 'board', type: 'board', name: '切配台', x: 250, y: 350, w: 150, h: 110, approach: { x: 325, y: 503 } },
@@ -43,13 +44,10 @@ const MOONLIGHT_STATIONS = [
     : s.id === 'serve' ? { ...s, type: 'flowers', name: '花下餐位' } : s),
   { id: 'lamp', type: 'lamp', name: '灯旁茶位', x: 40, y: 483, w: 110, h: 72, approach: { x: 199, y: 520 } },
 ];
-const ARRANGING_STATIONS = STATIONS.filter(s => s.id !== 'serve').map(s => s.id === 'plating' ? { ...s, name: '餐盘提手' } : s);
-const MEAL_SLOTS = Array.from({ length: 3 }, (_, slot) => ({
-  id: `slot-${slot}`, type: 'slot', slot, name: ['左餐格', '中餐格', '右餐格'][slot],
-  x: 490 + slot * 65, y: 615, w: 60, h: 75, approach: { x: 520 + slot * 65, y: 585 },
-}));
-const MEAL_STATIONS = [...ARRANGING_STATIONS, ...MEAL_SLOTS,
+const BENTO_STATIONS = [...STATIONS.filter(s => s.id !== 'serve'),
   { id: 'serve', type: 'serve', name: '取餐口', x: 40, y: 483, w: 110, h: 72, approach: { x: 190, y: 530 } }];
+const MEMORY_STATIONS = STATIONS.map(s => s.id === 'serve'
+  ? { ...s, type: 'photo-table', name: '双人餐桌', x: 40, y: 483, w: 110, h: 72, approach: { x: 190, y: 530 } } : s);
 const SPICE_STATIONS = [...STATIONS.filter(s => s.id !== 'serve'),
   { ...STATIONS.find(s => s.id === 'serve'), x: 40, y: 483, w: 110, h: 72, approach: { x: 190, y: 530 } },
   ...Object.keys(SPICES).map((spice, i) => ({
@@ -57,15 +55,64 @@ const SPICE_STATIONS = [...STATIONS.filter(s => s.id !== 'serve'),
     x: 480 + i * 55, y: 615, w: 50, h: 75, approach: { x: 505 + i * 55, y: 585 },
   })),
 ];
-export function stationsFor(k) {
+function chapterStations(k) {
   const chapter = typeof k === 'number' ? k : k.chapter;
-  return chapter === 4 ? MOONLIGHT_STATIONS : [1, 3].includes(chapter) ? MEAL_STATIONS : chapter === 2 ? SPICE_STATIONS : STATIONS;
+  return chapter === 4 ? MOONLIGHT_STATIONS : chapter === 3 ? MEMORY_STATIONS : chapter === 1 ? BENTO_STATIONS : chapter === 2 ? SPICE_STATIONS : STATIONS;
+}
+const WIDE_POSITIONS = {
+  'stock-0': [230, 66], 'stock-1': [420, 66], 'stock-2': [610, 66], 'stock-3': [800, 66],
+  plates: [52, 210], board: [355, 235], pot: [615, 235], oven: [1050, 210],
+  plating: [325, 390], serve: [760, 390], trash: [63, 76], puzzle: [1090, 76],
+  lamp: [545, 390],
+};
+const WIDE_APPROACHES = {
+  plates: [208, 270], board: [330, 290], pot: [590, 290], oven: [1206, 270],
+  plating: [501, 410], serve: [855, 360], trash: [193, 128], puzzle: [1060, 126], lamp: [590, 365],
+};
+const WIDE_STATIONS = Array.from({ length: 6 }, (_, chapter) => chapterStations(chapter).map(s => {
+  const spiceIndex = Object.keys(SPICES).indexOf(s.spice);
+  const [x, y] = s.type === 'spice' ? [800 + spiceIndex * 55, 235] : WIDE_POSITIONS[s.id];
+  const w = s.id === 'serve' ? 190 : s.w;
+  const h = s.id === 'serve' ? 75 : s.h;
+  const [ax, ay] = WIDE_APPROACHES[s.id] || [x + w / 2, y + h + (s.type === 'stock' ? 22 : 30)];
+  return { ...s, x, y, w, h, approach: { x: ax, y: ay } };
+}));
+export function stationsFor(k) {
+  return k?.layout === 'landscape' ? WIDE_STATIONS[k.chapter] : chapterStations(k);
+}
+export function worldFor(k) {
+  return k.layout === 'landscape' ? LANDSCAPE_WORLD : WORLD;
+}
+export function setKitchenLayout(k, landscape) {
+  const next = landscape ? 'landscape' : 'desktop';
+  if ((k.layout || 'desktop') === next) return;
+  const before = worldFor(k);
+  const untouched = !k.layout && k.player.x === 420 && k.player.y === 548;
+  const ratio = { x: k.player.x / before.width, y: k.player.y / before.height };
+  k.layout = next;
+  const world = worldFor(k);
+  const target = untouched && landscape ? { x: 585, y: 408 } : { x: ratio.x * world.width, y: ratio.y * world.height };
+  const minY = landscape ? 50 : 265;
+  const candidates = [];
+  for (let y = minY; y <= world.height - 43; y += 12) for (let x = 43; x <= world.width - 43; x += 12) {
+    const point = { x, y };
+    if (stationsFor(k).every(s => stationDistance(point, s) >= 23)) candidates.push(point);
+  }
+  candidates.sort((a, b) => Math.hypot(a.x - target.x, a.y - target.y) - Math.hypot(b.x - target.x, b.y - target.y));
+  k.player = candidates[0];
 }
 export const CHOP_SECONDS = 2.4;
 export const REACH = 64;
 export const PLAYER_SPEED = 235;
 export const METHOD_NAMES = { pot: '煮熟', oven: '烤熟', fresh: '切好' };
 export const STAGE_NAMES = { raw: '未处理', cut: '已切好', pot: '已煮熟', oven: '已烤好' };
+export const ORDER_POINTS = 100;
+export const ORDER_PENALTY = 30;
+export const CHALLENGES = [240, 300, 330, 300, 240, 300].map((seconds, chapter) => ({
+  seconds, target: 200,
+  orderInterval: [40, 45, 50, 45, 40, 45][chapter],
+  orderLifetime: [110, 130, 150, 130, 110, 130][chapter],
+}));
 
 export function createKitchen(chapter = 0) {
   return {
@@ -74,10 +121,16 @@ export function createKitchen(chapter = 0) {
     pot: { item: null, elapsed: 0, duration: 0, ready: false },
     oven: { item: null, elapsed: 0, duration: 0, ready: false },
     plating: null, delivered: false, deliveries: 0,
+    timeLeft: CHALLENGES[chapter].seconds, score: 0, targetScore: CHALLENGES[chapter].target, expired: false,
+    orders: [{ id: 1, createdAt: 0, expiresAt: CHALLENGES[chapter].orderLifetime }],
+    nextOrderId: 2, nextOrderAt: CHALLENGES[chapter].orderInterval, missedOrders: 0,
+    lastServedOrder: null, lastMissedOrderIds: [],
     puzzle: { solved: false, inspected: false, steam: 0, attempts: 0, openRequested: false },
     places: { lamp: null, flowers: null },
     spices: [], broth: [],
-    message: `欢迎来到${THEMES[chapter].name}，右下角有一份特别线索。`, messageKind: 'normal',
+    photo: { meal: null, x: 20, y: -16, focus: 20, shots: 0, capture: null, openRequested: false },
+    packing: { meal: null, step: 0, openRequested: false },
+    message: `欢迎来到${THEMES[chapter].name}，先到${THEMES[chapter].station}看看特别线索吧。`, messageKind: 'normal',
     stats: { cuts: 0, cooked: 0, baked: 0 }, elapsed: 0,
   };
 }
@@ -96,9 +149,9 @@ export function itemName(item) {
   if (!item) return '两手空空';
   if (item.type === 'spice') return SPICES[item.id].name;
   if (item.type === 'spicebag') return '配好的卤料袋';
+  if (item.type === 'bento') return '封好的爱心便当';
   if (item.id === 'jam') return isHeartJam(item) ? '爱心双果酱' : item.method === 'pot' ? '待调整的果酱' : '锅里的水果';
   if (item.type === 'plate') return item.contents.length ? `餐盘 · ${item.contents.map(i => INGREDIENTS[i.id].name).join('、')}` : '空餐盘';
-  if (item.id === 'rice' && item.shape) return `${{ circle: '圆形', triangle: '三角', heart: '爱心' }[item.shape]}饭团`;
   return `${item.method === 'fresh' ? item.cut ? '切好的' : '' : item.method === 'pot' ? '煮好的' : '烤好的'}${INGREDIENTS[item.id].name}`;
 }
 export function ingredientMatches(item, part) {
@@ -117,30 +170,91 @@ export function plateMatches(plate, chapter) {
     && (chapter !== 2 || plate.contents.find(item => item.id === 'beef')?.braised === true);
 }
 export function plateProgress(kitchen) {
-  const plate = kitchen.holding?.type === 'plate' ? kitchen.holding : kitchen.plating;
+  const plate = kitchen.chapter === 3 && kitchen.photo.meal ? kitchen.photo.meal
+    : kitchen.chapter === 1 && kitchen.packing.meal ? kitchen.packing.meal
+    : ['plate', 'bento'].includes(kitchen.holding?.type) ? kitchen.holding : kitchen.plating;
   return DISHES[kitchen.chapter].parts.map(part => kitchen.chapter === 4
     ? part.id === 'mint' ? !!kitchen.places.lamp : !!kitchen.places.flowers
     : !!plate?.contents.some(item => ingredientMatches(item, part)));
 }
 export function canServe(k) {
+  if (k.delivered || k.expired || !k.orders.length) return false;
+  if (k.chapter === 3) return false;
+  if (k.chapter === 1) return k.holding?.type === 'bento' && k.holding.packed === true
+    && plateMatches({ ...k.holding, type: 'plate' }, 1) && k.puzzle.solved;
   if (!plateMatches(k.holding, k.chapter) || !k.puzzle.solved) return false;
   const order = THEMES[k.chapter].order;
   if (order && k.holding.contents.some((item, i) => item.id !== order[i])) return false;
-  return k.chapter !== 1 || k.holding.contents.find(i => i.id === 'rice')?.shape === 'triangle';
+  return true;
+}
+
+export const PACKING_STEPS = [
+  { id: 'lid', label: '盖上盒盖', done: '盒盖盖好啦，热乎乎的饭菜装好了。', icon: 'square' },
+  { id: 'band', label: '套好绑带', done: '绑带套好啦，路上也不会散开。', icon: 'logs' },
+  { id: 'seal', label: '贴爱心封签', done: '封好这份惦记，带给出门的你。', icon: 'heart' },
+];
+function atPackingTable(k) {
+  return k.chapter === 1 && !k.delivered && !k.expired
+    && stationDistance(k.player, stationsFor(k).find(s => s.id === 'puzzle')) <= REACH;
+}
+export function packBento(k, step) {
+  if (!atPackingTable(k) || !plateMatches(k.packing.meal, 1) || k.holding) return false;
+  if (PACKING_STEPS[k.packing.step]?.id !== step) return say(k, '先把前一步做好，便当会在这里等你。', 'gentle');
+  say(k, PACKING_STEPS[k.packing.step].done, 'success');
+  k.packing.step++;
+  if (k.packing.step === PACKING_STEPS.length) k.puzzle.solved = true;
+  return true;
+}
+export function takePackedBento(k) {
+  if (!atPackingTable(k) || !plateMatches(k.packing.meal, 1) || k.packing.step !== 3 || k.holding) return false;
+  k.holding = { type: 'bento', contents: k.packing.meal.contents, packed: true };
+  k.packing.meal = null;
+  say(k, '便当拿好啦，送到取餐口，把这份心意交给你。', 'success');
+  return true;
+}
+
+export function adjustMemoryCamera(k, settings) {
+  if (k.chapter !== 3 || !k.photo.meal || k.delivered || k.expired || k.photo.capture) return false;
+  for (const [key, min, max] of [['x', -30, 30], ['y', -30, 30], ['focus', 0, 100]]) {
+    if (Number.isFinite(settings[key])) k.photo[key] = Math.max(min, Math.min(max, settings[key]));
+  }
+  return true;
+}
+export function memoryPhotoQuality(settings) {
+  const framed = Number.isFinite(settings?.x) && Number.isFinite(settings?.y) && Math.abs(settings.x) <= 12 && Math.abs(settings.y) <= 12;
+  const focused = Number.isFinite(settings?.focus) && settings.focus >= 40 && settings.focus <= 70;
+  return { framed, focused, ready: framed && focused };
+}
+export function captureMemoryPhoto(k) {
+  if (k.chapter !== 3 || !plateMatches(k.photo.meal, 3) || k.delivered || k.expired || k.photo.capture) return false;
+  const { x, y, focus } = k.photo;
+  k.photo.capture = { x, y, focus, ...memoryPhotoQuality(k.photo) };
+  k.photo.shots++;
+  return true;
+}
+export function retakeMemoryPhoto(k) {
+  if (k.chapter !== 3 || !k.photo.meal || k.delivered || k.expired) return false;
+  k.photo.capture = null;
+  return true;
+}
+export function keepMemoryPhoto(k) {
+  if (k.chapter !== 3 || !plateMatches(k.photo.meal, 3) || !k.photo.capture?.ready || k.delivered || k.expired) return false;
+  if (!k.orders.length) return say(k, '订单还没到，照片和晚餐替你留着。', 'gentle');
+  k.puzzle.solved = true;
+  completeOrder(k, 'serve');
+  return true;
 }
 
 export function solveKitchenPuzzle(k, answer) {
   if (k.chapter !== 5) return say(k, '这间厨房的答案，藏在亲手完成的料理里。', 'gentle');
   const s = stationsFor(k).find(s => s.id === 'puzzle');
-  if (k.delivered || stationDistance(k.player, s) > REACH) return say(k, '带着线索到右下角的特别工作台来吧。', 'gentle');
+  if (k.delivered || k.expired || stationDistance(k.player, s) > REACH) return say(k, '带着料理到花园餐序工作台来吧。', 'gentle');
   const theme = THEMES[k.chapter];
   k.puzzle.attempts++;
   if (theme.order) {
     if (!plateMatches(k.holding, k.chapter)) return say(k, '先把订单里的料理做好、装进餐盘，再端到这里来。', 'gentle');
-    if (!Array.isArray(answer?.order) || answer.order.join(',') !== theme.order.join(',')
-      || (k.chapter === 1 && answer.shape !== 'triangle')) return say(k, '和线索还差一点，再看看图案和先后顺序。', 'gentle');
+    if (!Array.isArray(answer?.order) || answer.order.join(',') !== theme.order.join(',')) return say(k, '和线索还差一点，再看看图案和先后顺序。', 'gentle');
     k.holding.contents = theme.order.map(id => k.holding.contents.find(item => item.id === id));
-    if (k.chapter === 1) k.holding.contents.find(i => i.id === 'rice').shape = 'triangle';
   } else if (theme.answer) {
     if (!Array.isArray(answer) || answer.length !== theme.answer.length
       || new Set(answer).size !== answer.length || !theme.answer.every(id => answer.includes(id))) return say(k, '再对照一下线索吧，不合适的那一项可以先放回去。', 'gentle');
@@ -151,14 +265,42 @@ export function solveKitchenPuzzle(k, answer) {
 }
 function say(k, message, kind = 'normal') { k.message = message; k.messageKind = kind; return false; }
 function emptyAppliance() { return { item: null, elapsed: 0, duration: 0, ready: false }; }
-function updateArrangement(k, plate) {
-  if (![1, 3].includes(k.chapter)) return;
-  k.puzzle.solved = plateMatches(plate, k.chapter)
-    && plate.contents.every((item, i) => item.slot === i && item.id === THEMES[k.chapter].order[i])
-    && (k.chapter !== 1 || plate.contents[0].shape === 'triangle');
-  if (k.puzzle.solved) say(k, THEMES[k.chapter].success, 'success');
+function completeOrder(k, stationId) {
+  if (k.delivered || k.expired || !k.orders.length) return;
+  k.lastServedOrder = { id: k.orders.shift().id, stationId };
+  k.deliveries++;
+  k.score += ORDER_POINTS;
+  k.delivered = k.score >= k.targetScore;
+  if (!k.delivered) {
+    // Prepared food and discovered clues stay; only the served order is cleared.
+    k.puzzle.solved = k.chapter === 2 && correctSpices(k.broth);
+    k.places = { lamp: null, flowers: null };
+    k.packing = { meal: null, step: 0, openRequested: false };
+    k.photo = { meal: null, x: 20, y: -16, focus: 20, shots: 0, capture: null, openRequested: false };
+  }
+  say(k, `出餐成功 +${ORDER_POINTS} 分！${k.score} / ${k.targetScore} 分${k.delivered ? '，挑战达标，生日便笺已送达。' : k.orders.length ? `，还有 ${k.orders.length} 单在等候。` : '，下一张订单正在路上。'}`, 'success');
+}
+function advanceOrders(k) {
+  const challenge = CHALLENGES[k.chapter];
+  // Absolute arrival/deadline times keep long frames and many short frames equivalent.
+  while (k.nextOrderAt <= k.elapsed && k.nextOrderAt < challenge.seconds) {
+    k.orders.push({ id: k.nextOrderId++, createdAt: k.nextOrderAt, expiresAt: k.nextOrderAt + challenge.orderLifetime });
+    k.nextOrderAt += challenge.orderInterval;
+  }
+  const expired = k.orders.filter(order => order.expiresAt <= k.elapsed);
+  if (!expired.length) return 0;
+  k.orders = k.orders.filter(order => order.expiresAt > k.elapsed);
+  k.lastMissedOrderIds = expired.map(order => order.id);
+  k.missedOrders += expired.length;
+  k.score -= expired.length * ORDER_PENALTY;
+  return expired.length;
 }
 function addToPlate(k, plate, item) {
+  if (k.chapter === 1) {
+    if (!DISHES[1].parts.some(part => ingredientMatches(item, part))) return say(k, '便当里要有煮好的米饭、烤鸡和切好的西兰花，这份先留在手里。', 'gentle');
+    if (plate.contents.some(part => part.id === item.id)) return say(k, '这份料理已经装好啦，不用重复添加。', 'gentle');
+  }
+  if (k.chapter === 3 && !DISHES[3].parts.some(part => ingredientMatches(item, part))) return say(k, '旧照片里的晚餐是番茄热汤、烤吐司和切好的蘑菇，再看看食材与做法。', 'gentle');
   if (k.chapter === 0) {
     if (item.id === 'jam' && !isHeartJam(item)) return say(k, k.pot.item === item
       ? '果酱没有冒爱心。可以留在锅里换一种水果，吐司会为你留着。'
@@ -168,11 +310,6 @@ function addToPlate(k, plate, item) {
   }
   if (plate.contents.length >= 3) return say(k, '餐盘已经满啦，先去出餐口或回收桶整理一下。', 'gentle');
   plate.contents.push(item);
-  if ([1, 3].includes(k.chapter)) {
-    item.slot = [0, 1, 2].find(slot => !plate.contents.some(other => other !== item && other.slot === slot));
-    plate.contents.sort((a, b) => a.slot - b.slot);
-    updateArrangement(k, plate);
-  }
   if (k.chapter === 0 && plate.contents.some(isHeartJam) && plate.contents.some(i => i.id === 'bread' && i.method === 'oven')) {
     plate.contents.find(i => i.id === 'bread').spread = true;
     k.puzzle.solved = true;
@@ -182,21 +319,19 @@ function addToPlate(k, plate, item) {
 }
 
 export function actionLabel(k, station = nearestStation(k)) {
+  if (k.expired) return '时间到';
   if (k.delivered) return '已出餐';
   if (!station) return '靠近工作台';
   const h = k.holding;
+  if (station.type === 'photo-table') return k.photo.meal ? '为晚餐拍照' : '把晚餐端上桌';
   if (station.type === 'lamp') return k.places.lamp ? '热茶已就位' : '把热茶留在灯旁';
   if (station.type === 'flowers') return k.places.flowers ? '面包已就位' : '把面包放在花下';
   if (station.type === 'puzzle' && k.chapter === 4) return k.puzzle.steam >= 2 ? '读玻璃上的字' : '端热茶靠近玻璃';
-  if (station.type === 'puzzle' && k.chapter === 1) return h?.id === 'rice' || h?.contents?.some(i => i.id === 'rice') ? '压饭团模具' : '查看盒盖';
+  if (station.type === 'puzzle' && k.chapter === 1) return k.packing.meal ? '继续打包便当' : h?.type === 'bento' ? '便当已封好' : '打包便当';
   if (station.type === 'puzzle' && k.chapter === 2) return h?.type === 'spice' ? '放进卤料袋' : correctSpices(k.spices) ? '拿起卤料袋' : k.spices.length ? '取回最后一味' : '查看卤料方';
   if (station.type === 'spice') return h?.type === 'spice' && h.id === station.spice ? '放回香料罐' : h ? '先放下手中物品' : `取${station.name}`;
-  if (station.type === 'slot') {
-    const occupied = k.plating?.contents.some(i => i.slot === station.slot);
-    return !k.plating ? '先放一个空盘' : h?.type === 'ingredient' ? occupied ? '交换这格料理' : '放进这个餐格' : !h && occupied ? '取回这格料理' : '餐格空着';
-  }
-  if (station.type === 'puzzle' && k.chapter === 3) return '对照回忆相片';
-  if (station.type === 'puzzle') return k.puzzle.solved ? '查看特别线索' : ['bento', 'memory', 'finale'].includes(THEMES[k.chapter].kind) ? '塑形与摆盘' : '查看特别线索';
+  if (station.type === 'puzzle' && k.chapter === 3) return k.photo.meal ? '拿起相机' : '对照回忆相片';
+  if (station.type === 'puzzle') return THEMES[k.chapter].kind === 'finale' ? '按餐序摆盘' : '查看特别线索';
   if (station.type === 'stock') return h ? '手里已有食材' : `取${INGREDIENTS[DISHES[k.chapter].stock[Number(station.id.split('-')[1])]].name}`;
   if (station.type === 'board') return h ? '放上切配台' : k.board.item ? k.board.item.cut ? '拿起食材' : '等待切配' : '切配台空着';
   if (station.type === 'pot' || station.type === 'oven') {
@@ -209,58 +344,61 @@ export function actionLabel(k, station = nearestStation(k)) {
   }
   if (station.type === 'plates') return h?.type === 'plate' ? '放回空盘' : h ? '先放下食材' : '拿一个盘子';
   if (station.type === 'plating' && k.chapter === 0 && (h?.id === 'jam' || h?.id === 'bread') && k.plating?.contents.some(i => i.id !== h.id)) return '抹果酱到吐司上';
-  if (station.type === 'plating' && [1, 3].includes(k.chapter) && h?.type === 'ingredient') return '去右边选择餐格';
   if (station.type === 'plating') return h?.type === 'plate' ? '放下餐盘' : h ? '装入餐盘' : k.plating ? '端起餐盘' : '先放一个盘子';
-  if (station.type === 'serve') return h?.type === 'plate' ? '上菜啦' : '端着餐盘来';
+  if (station.type === 'serve') return k.chapter === 1 ? h?.type === 'bento' ? '把便当交给你' : '带上封好的便当' : h?.type === 'plate' ? '上菜啦' : '端着餐盘来';
   if (station.type === 'trash') return h ? '放入回收桶' : '两手空空';
   return '操作';
 }
 export function canChop(k) {
-  return !k.delivered && !k.holding && !!k.board.item && !k.board.item.cut
+  return !k.delivered && !k.expired && !k.holding && !!k.board.item && !k.board.item.cut
     && INGREDIENTS[k.board.item.id].cut && stationDistance(k.player, stationsFor(k).find(s => s.id === 'board')) <= REACH;
 }
 
+export function kitchenClue(k) {
+  return k.chapter === 4 && k.puzzle.steam >= 2 ? STEAM_MESSAGE : THEMES[k.chapter].clue;
+}
+
 export function interact(k, stationId = nearestStation(k)?.id) {
+  if (k.expired) return say(k, '营业时间到啦，再挑战一次吧。', 'gentle');
   if (k.delivered) return say(k, '这份心意已经送达啦，去看看生日便笺吧。');
   const station = stationsFor(k).find(s => s.id === stationId);
   if (!station || stationDistance(k.player, station) > REACH) return say(k, '再走近一点，我帮你留着这个位置。', 'gentle');
   const h = k.holding;
+  if (station.type === 'photo-table') {
+    if (k.photo.meal) {
+      k.photo.openRequested = true;
+      return say(k, '晚餐还热着，相机也为你留在这里。');
+    }
+    if (!plateMatches(h, 3)) return say(k, '餐桌在等一整盘番茄热汤、烤吐司和切好的蘑菇。', 'gentle');
+    k.photo.meal = h; k.holding = null; k.photo.openRequested = true;
+    return say(k, '双人晚餐上桌啦，为今天留一张照片吧。', 'success');
+  }
   if (station.type === 'spice') {
     if (h?.type === 'spice' && h.id === station.spice) { k.holding = null; return say(k, '香料放回罐子啦。'); }
     if (h) return say(k, '先把手里的东西放好，再取一味香料。', 'gentle');
     k.holding = { type: 'spice', id: station.spice };
-    return say(k, `拿到${station.name}，可以送进右下角的卤料袋，也可以放回原罐。`);
-  }
-  if (station.type === 'slot') {
-    if (!k.plating) return say(k, '先把空盘放到左边的餐盘提手台，三个餐格就准备好啦。', 'gentle');
-    const item = k.plating.contents.find(i => i.slot === station.slot);
-    if (!h && item) {
-      k.holding = item; k.plating.contents.splice(k.plating.contents.indexOf(item), 1);
-      delete item.slot; updateArrangement(k, k.plating);
-      return say(k, '取回这一格啦，其他料理原样留着，可以换个位置。');
-    }
-    if (h?.type !== 'ingredient') return say(k, item ? '先空出双手，就能取回这格料理。' : '这里空着，端一份做好的料理来吧。');
-    if (!DISHES[k.chapter].parts.some(p => ingredientMatches(h, p))) return say(k, '食材或做法还不对，看看菜谱和线索；手中的料理先留着。', 'gentle');
-    if (item) {
-      k.plating.contents.splice(k.plating.contents.indexOf(item), 1);
-      delete item.slot;
-    }
-    h.slot = station.slot; k.plating.contents.push(h); k.plating.contents.sort((a, b) => a.slot - b.slot);
-    k.holding = item || null; updateArrangement(k, k.plating);
-    return k.puzzle.solved ? say(k, THEMES[k.chapter].success, 'success') : say(k, item ? `交换好啦，手里是${itemName(item)}，可以送到空着的那格。` : '放好一格啦。放错可以空手取回，也可以端着料理来交换。');
+    return say(k, `拿到${station.name}，可以送进卤料袋，也可以放回原罐。`);
   }
   if (station.type === 'puzzle') {
     k.puzzle.inspected = true;
-    k.puzzle.openRequested = k.chapter === 5;
+    k.puzzle.openRequested = false;
+    if (k.chapter === 3 && k.photo.meal) {
+      k.photo.openRequested = true;
+      return say(k, '晚餐还热着，相机也为你留在这里。');
+    }
     if (k.chapter === 1) {
-      const rice = h?.id === 'rice' ? h : h?.contents?.find(i => i.id === 'rice');
-      if (rice) {
-        if (rice.method !== 'pot') return say(k, '模具要用煮好的米饭，生米先送进锅里。', 'gentle');
-        const shapes = ['circle', 'triangle', 'heart'];
-        rice.shape = shapes[(shapes.indexOf(rice.shape) + 1) % shapes.length];
-        updateArrangement(k, h?.type === 'plate' ? h : k.plating);
-        return say(k, `压出${itemName(rice)}啦。${rice.shape === 'triangle' ? '和盒盖的小山尖一样！' : '和小山尖不太一样，再压一次可以换模具。'}`, rice.shape === 'triangle' ? 'success' : 'normal');
+      if (h?.type === 'bento') return say(k, '便当封好啦，直接送到取餐口吧。', 'success');
+      if (k.packing.meal) {
+        if (h) return say(k, '先放下手里的东西，打包台上的便当替你留着。', 'gentle');
+        k.packing.openRequested = true;
+        return say(k, '便当还在，接着把这份心意包好吧。');
       }
+      if (!plateMatches(h, 1)) {
+        k.puzzle.openRequested = true;
+        return say(k, kitchenClue(k), 'gentle');
+      }
+      k.packing.meal = h; k.packing.step = 0; k.holding = null; k.packing.openRequested = true;
+      return say(k, '饭菜装进便当盒啦，还差盒盖、绑带和一枚爱心封签。', 'success');
     }
     if (k.chapter === 2) {
       if (h?.type === 'spice') {
@@ -278,10 +416,12 @@ export function interact(k, stationId = nearestStation(k)?.id) {
       }
       if (h?.type === 'spicebag') return say(k, '卤料袋已经在手里啦，送进中间的煮锅吧。');
     }
-    return say(k, k.chapter === 4 && k.puzzle.steam >= 2 ? STEAM_MESSAGE : THEMES[k.chapter].clue);
+    k.puzzle.openRequested = true;
+    return say(k, kitchenClue(k));
   }
   if (station.type === 'lamp' || station.type === 'flowers') {
-    if (k.puzzle.steam < 2) return say(k, '先端着热茶到右下角玻璃前，看看雾气里藏着什么。', 'gentle');
+    if (!k.orders.length) return say(k, '订单还没到，先把料理留在手里吧。', 'gentle');
+    if (k.puzzle.steam < 2) return say(k, '先端着热茶到雾气玻璃前，看看雾气里藏着什么。', 'gentle');
     const place = station.type;
     if (k.places[place]) return say(k, '这里的心意已经放好啦。', 'success');
     const part = DISHES[4].parts[place === 'lamp' ? 0 : 1];
@@ -295,8 +435,9 @@ export function interact(k, stationId = nearestStation(k)?.id) {
       if (!h.contents.length) k.holding = null;
     } else { k.places[place] = h; k.holding = null; }
     if (k.places.lamp && k.places.flowers) {
-      k.puzzle.solved = true; k.delivered = true; k.deliveries++;
-      return say(k, THEMES[4].success, 'success');
+      k.puzzle.solved = true;
+      completeOrder(k, station.id);
+      return;
     }
     return say(k, place === 'lamp' ? '热茶留在灯旁啦，还差花下的一盘烤面包。' : '面包放在花下啦，还差灯旁的一杯热茶。', 'success');
   }
@@ -340,7 +481,7 @@ export function interact(k, stationId = nearestStation(k)?.id) {
     if (h.method !== 'fresh') return say(k, '这份料理已经熟啦，不用再烹饪一次。', 'gentle');
     if (INGREDIENTS[h.id].cut && !h.cut) return say(k, `${INGREDIENTS[h.id].name}还没切配，先去切配台吧。`, 'gentle');
     const duration = INGREDIENTS[h.id][method];
-    if (!duration) return say(k, '这份食材不适合这个做法，看看订单上的小配方。', 'gentle');
+    if (!duration) return say(k, '这份食材不适合这个做法，换一种试试吧。', 'gentle');
     if (k.chapter === 2 && method === 'pot' && !correctSpices(k.broth)) return say(k, '锅里还没有卤料。配好卤料袋，亲手放进煮锅再下食材。', 'gentle');
     if (k.chapter === 2 && method === 'pot') h.braised = true;
     k[method] = { item: h, duration, elapsed: 0, ready: false }; k.holding = null;
@@ -354,20 +495,29 @@ export function interact(k, stationId = nearestStation(k)?.id) {
   if (station.type === 'plating') {
     if (h?.type === 'plate' && !k.plating) { k.plating = h; k.holding = null; return say(k, '餐盘摆好啦，等你把料理一份份送来。'); }
     if (h?.type === 'ingredient' && k.plating) {
-      if ([1, 3].includes(k.chapter)) return say(k, '右边是同一餐盘的三个餐格，走到想放的那一格再放下。');
       if (h.method === 'fresh' && INGREDIENTS[h.id].cut && !h.cut) return say(k, '这份食材还没切好，先去切配台吧。', 'gentle');
       if (!addToPlate(k, k.plating, h)) return false;
-      k.holding = null; return say(k, plateMatches(k.plating, k.chapter) ? k.chapter === 0 ? THEMES[0].success : '配菜齐啦，端起餐盘去出餐口吧！' : '装好一份啦，再看看订单还需要什么。', 'success');
+      k.holding = null; return say(k, plateMatches(k.plating, k.chapter) ? k.chapter === 0 ? THEMES[0].success : k.chapter === 1 ? '饭菜齐啦，端到便当打包台，装进便当盒吧。' : k.chapter === 3 ? '晚餐齐啦，端到双人餐桌，为它拍张照吧。' : '配菜齐啦，端起餐盘去出餐口吧！' : '装好一份啦，再看看订单还需要什么。', 'success');
     }
-    if (!h && k.plating) { k.holding = k.plating; k.plating = null; return say(k, [1, 2, 3].includes(k.chapter) ? '餐盘端稳啦，取餐口在左侧。' : '餐盘端稳啦，出餐口就在旁边。'); }
+    if (!h && k.plating) { k.holding = k.plating; k.plating = null; return say(k, k.chapter === 1 ? '餐盘端稳啦，带到便当打包台。' : k.chapter === 3 ? '餐盘端稳啦，送到双人餐桌吧。' : '餐盘端稳啦，送到出餐口吧。'); }
     return say(k, h?.type === 'plate' ? '这里已经有餐盘啦，先端走原来的那一盘。' : '先从盘子架拿一个空盘，放在装盘台。', 'gentle');
   }
   if (station.type === 'serve') {
+    if (!k.orders.length) return say(k, '订单还没到，做好的一份可以先留着。', 'gentle');
+    if (k.chapter === 1) {
+      if (!canServe(k)) return say(k, '先把饭菜端到便当打包台，盖盖、套绑带、贴封签，再把便当带来。', 'gentle');
+      k.holding = null;
+      completeOrder(k, station.id);
+      return;
+    }
     if (!plateMatches(h, k.chapter)) return say(k, h?.type === 'plate' ? '这盘和订单还差一点，检查一下食材和烹饪方式吧。' : '上菜时，要把料理装在餐盘里哦。', 'gentle');
-    if (!canServe(k)) return say(k, [1, 3].includes(k.chapter) ? '料理齐了，模样或位置还差一点。把盘子放回提手台，空手取回餐格里的料理调整吧。' : '料理齐了，再到右下角完成这间厨房的特别心意吧。', 'gentle');
-    k.holding = null; k.delivered = true; k.deliveries++; return say(k, '完美出餐！一封生日便笺，已经为你准备好。', 'success');
+    if (!canServe(k)) return say(k, `料理齐了，再到${THEMES[k.chapter].station}完成这间厨房的特别心意吧。`, 'gentle');
+    k.holding = null;
+    completeOrder(k, station.id);
+    return;
   }
   if (station.type === 'trash') {
+    if (h?.type === 'bento') return say(k, '这份便当已经好好封好啦，取餐口有人在等它。', 'gentle');
     if (!h) return say(k, '没有要回收的东西，厨房还是很整洁。');
     k.holding = null; return say(k, '收拾好啦，再试一次也没关系。');
   }
@@ -405,8 +555,16 @@ function interactJamPot(k) {
 }
 
 export function stepKitchen(k, seconds, chopping = false) {
-  if (k.delivered || !Number.isFinite(seconds) || seconds <= 0) return;
-  k.elapsed += seconds;
+  if (k.delivered || k.expired || !Number.isFinite(seconds) || seconds <= 0) return;
+  const activeSeconds = Math.min(seconds, k.timeLeft);
+  k.elapsed += activeSeconds;
+  k.timeLeft = Math.max(0, k.timeLeft - activeSeconds);
+  const missed = advanceOrders(k);
+  if (k.timeLeft === 0) {
+    k.expired = true;
+    say(k, `时间到！获得 ${k.score} 分，通关需要 ${k.targetScore} 分。再试一次吧。`, 'gentle');
+    return;
+  }
   const hasHotTea = item => item?.id === 'mint' && item.method === 'pot'
     || item?.type === 'plate' && item.contents.some(part => part.id === 'mint' && part.method === 'pot');
   if (k.chapter === 4 && k.puzzle.steam < 2) {
@@ -433,32 +591,37 @@ export function stepKitchen(k, seconds, chopping = false) {
       say(k, job.item.id === 'jam' ? isHeartJam(job.item) ? '锅里冒出爱心！把果酱抹上烤吐司吧。' : '果酱的颜色不太对，也没有爱心。留在锅里换一种水果试试吧。' : `${method === 'pot' ? '锅里的料理煮好' : '烤箱里的料理烤好'}啦，随时可以取走。`, job.item.id === 'jam' && !isHeartJam(job.item) ? 'gentle' : 'success');
     }
   }
+  if (missed) say(k, `${missed} 张订单超时，扣除 ${missed * ORDER_PENALTY} 分。当前 ${k.score} / ${k.targetScore} 分，料理还在，继续加油！`, 'gentle');
 }
 
 export function nextTask(k) {
+  if (k.expired) return '时间到啦，重新挑战这一关，已解锁的礼物会保留。';
   if (k.delivered) return '完美出餐，打开你的生日便笺。';
-  if (k.holding?.type === 'spice') return '把这味香料放进右下角卤料袋，或送回对应的罐子。';
-  if (k.holding?.type === 'spicebag') return '亲手把卤料袋放进中间的煮锅，让清汤变成卤汤。';
-  if ([1, 3].includes(k.chapter)) {
-    if (k.holding?.id === 'rice' && k.holding.method === 'pot' && k.holding.shape !== 'triangle') return '端着煮好的米饭，到右下角模具台压出盒盖上的小山尖。';
-    if (k.holding?.type === 'ingredient' && DISHES[k.chapter].parts.some(p => ingredientMatches(k.holding, p)) && k.plating) return '去下方右侧三个餐格，按盒盖或餐照选择位置；放错可空手取回。';
-    if (k.puzzle.solved) return k.holding?.type === 'plate' ? '端着完整餐盘去左侧取餐口上菜。' : '去下方餐盘提手台，端起完成的餐盘，再送到左侧取餐口。';
-    if (plateMatches(k.plating || k.holding, k.chapter)) return '对照右下角图案检查模样和位置；把盘子放回提手台，空手取回放错的餐格。';
+  if (k.chapter === 3) {
+    if (k.photo.meal) return '回到双人餐桌拿起相机，让两套餐具一起入镜，对焦后留下照片。不满意可以重拍。';
+    if (plateMatches(k.holding, 3)) return '把完整晚餐端到双人餐桌，再为今天拍一张照片。';
   }
-  if (!k.puzzle.inspected && !k.puzzle.solved && k.chapter === 0) return '去右下角果园订单台，看看红心和紫色圆球的线索。';
+  if (k.holding?.type === 'spice') return '把这味香料放进卤料袋，或送回对应的罐子。';
+  if (k.holding?.type === 'spicebag') return '亲手把卤料袋放进中间的煮锅，让清汤变成卤汤。';
+  if (k.chapter === 1) {
+    if (k.holding?.type === 'bento') return '把封好的便当送到取餐口，交给出门的你。';
+    if (k.packing.meal) return k.packing.step === 3 ? '回便当打包台拿上便当，再送到取餐口。' : `回便当打包台，${PACKING_STEPS[k.packing.step].label}。`;
+    if (plateMatches(k.holding, 1)) return '把这盘饭菜端到便当打包台，准备盒盖、绑带和封签。';
+  }
+  if (!k.puzzle.inspected && !k.puzzle.solved && k.chapter === 0) return '去果园订单台，看看红心和紫色圆球的线索。';
   if (k.chapter === 0 && k.pot.waiting) return '把另一种水果切好，加入同一口煮锅；红心和紫色圆球是线索。';
   if (k.chapter === 0 && k.pot.ready && !isHeartJam(k.pot.item)) return '果酱没冒爱心：切好正确的水果，回到锅边替换，不用重做吐司。';
-  if (k.chapter === 0 && k.holding?.id === 'jam' && !isHeartJam(k.holding)) return '把手里这份果酱单独送到左下方回收桶，再试两种水果；不用回收吐司。';
-  if (k.chapter === 4 && k.puzzle.steam >= 2) return !k.places.lamp ? '把薄荷热茶送到左侧灯旁，再把单独装盘的烤面包送到花下。' : '烤好面包，单独装进餐盘，端到右下方的花下餐位。';
-  if (k.chapter === 4 && k.holding && (k.holding.id === 'mint' && k.holding.method === 'pot' || k.holding.type === 'plate' && k.holding.contents.some(i => i.id === 'mint' && i.method === 'pot'))) return '端着热茶靠近右下角雾气玻璃，停留两秒，让文字出现。';
-  if (!k.puzzle.solved && k.chapter === 2) return '读右下角卤料方，从下方四个罐子逐味取料放进袋子。三味配齐，再把袋子放进煮锅。';
-  if (plateMatches(k.holding, k.chapter) && !canServe(k)) return `端着料理去右下角的${THEMES[k.chapter].station}，完成特别心意。`;
-  if (plateMatches(k.holding, k.chapter)) return [1, 2, 3].includes(k.chapter) ? '端着餐盘，到左侧取餐口上菜。' : '端着餐盘，到右下方出餐口上菜。';
+  if (k.chapter === 0 && k.holding?.id === 'jam' && !isHeartJam(k.holding)) return '把手里这份果酱单独送到回收桶，再试两种水果；不用回收吐司。';
+  if (k.chapter === 4 && k.puzzle.steam >= 2) return !k.places.lamp ? '把薄荷热茶送到灯旁茶位，再把单独装盘的烤面包送到花下餐位。' : '烤好面包，单独装进餐盘，端到花下餐位。';
+  if (k.chapter === 4 && k.holding && (k.holding.id === 'mint' && k.holding.method === 'pot' || k.holding.type === 'plate' && k.holding.contents.some(i => i.id === 'mint' && i.method === 'pot'))) return '端着热茶靠近雾气玻璃，停留两秒，让文字出现。';
+  if (!k.puzzle.solved && k.chapter === 2) return '到卤料袋工作台读配方，从四个香料罐逐味取料放进袋子。三味配齐，再把袋子放进煮锅。';
+  if (plateMatches(k.holding, k.chapter) && !canServe(k)) return `端着料理去${THEMES[k.chapter].station}，完成特别心意。`;
+  if (plateMatches(k.holding, k.chapter)) return '端着餐盘，到出餐口上菜。';
   if (plateMatches(k.plating, k.chapter)) return '到下方装盘台，端起已经完成的餐盘。';
   if (canChop(k)) return '食材已放好，切配完成后就能拿走。';
   if (k.holding?.type === 'ingredient') {
     const part = DISHES[k.chapter].parts.find(p => p.id === k.holding.id) || (k.chapter === 0 && ['strawberry', 'grape', 'kiwi'].includes(k.holding.id) ? { method: 'pot' } : null);
-    if (!part) return '这不是订单需要的食材，可以送去左下方回收桶。';
+    if (!part) return '这不是订单需要的食材，可以送去回收桶。';
     if (!k.holding.cut && INGREDIENTS[k.holding.id].cut) return '把食材放到中间的切配台。';
     if (k.holding.method !== 'fresh' || part.method === 'fresh') return k.plating ? '把处理好的食材送到下方装盘台。' : '先把食材暂放在切配台，再去左边拿一个盘子。';
     return `把食材送进${part.method === 'pot' ? '中间的煮锅' : '右边的烤箱'}。`;

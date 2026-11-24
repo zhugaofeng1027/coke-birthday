@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from './fixtures.js';
 
 test('a narrow desktop window can play without a rotation prompt', async ({ page }, testInfo) => {
   test.skip(testInfo.project.name !== 'desktop', 'Desktop input detection regression.');
@@ -28,7 +28,7 @@ test('desktop phone preview fits narrow panels and preserves the chef when resiz
   await expect(host).toHaveAttribute('data-ready', 'true');
   await expect(game.locator('body')).toHaveClass(/landscape-play/);
   await expect(game.locator('.rotation-prompt')).toBeHidden();
-  await expect(game.locator('#kitchen')).toHaveAttribute('height', '600');
+  await expect(game.locator('#kitchen-host')).toHaveAttribute('data-layout', 'landscape');
   const geometry = () => page.locator('iframe').evaluate(el => {
     const r = el.getBoundingClientRect();
     return { x: r.x, y: r.y, right: r.right, bottom: r.bottom, viewport: innerWidth, height: innerHeight, width: el.contentWindow.innerWidth };
@@ -74,4 +74,27 @@ test('explicit desktop layout bypasses rotation even with touch input', async ({
   await expect(page.locator('#kitchen-host')).toHaveAttribute('data-ready', 'true');
   await expect(page.locator('.rotation-prompt')).toBeHidden();
   await expect(page.locator('body')).not.toHaveClass(/needs-rotation|landscape-play/);
+});
+
+test('bento comparison switches between identical starting tasks in a narrow preview', async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== 'desktop', 'Comparison toolbar is used in the desktop side pane.');
+  await page.setViewportSize({ width: 360, height: 650 });
+  await page.goto('/?preview=phone&debug=1&chapter=2&kitchen-polish=after');
+  const version = page.getByRole('combobox', { name: '试玩版本' });
+  await expect(version).toHaveValue('after');
+  await page.locator('#preview-size').selectOption('compact');
+  const iframe = page.locator('iframe');
+  const game = page.frameLocator('iframe');
+  const host = game.locator('#kitchen-host');
+  await expect(host).toHaveAttribute('data-nearest', 'board');
+  await expect(host).toHaveAttribute('data-board-state', 'raw');
+  await expect(host).toHaveAttribute('data-oven-state', 'ready');
+  const snapshot = el => [el.dataset.playerX, el.dataset.playerY, el.dataset.orderIds, el.dataset.score, el.dataset.ovenState];
+  const start = await host.evaluate(snapshot);
+  await version.selectOption('before');
+  await expect(iframe).toHaveAttribute('src', /kitchen-polish=before/);
+  await expect(game.locator('#shift-score')).toHaveText('0 / 200');
+  expect(await host.evaluate(snapshot)).toEqual(start);
+  await expect(page.locator('#preview-open')).toHaveAttribute('href', /kitchen-polish=before/);
+  await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth)).toBe(360);
 });

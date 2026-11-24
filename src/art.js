@@ -1,4 +1,9 @@
 const cache = new Map();
+let chefSprite;
+export const CHEF_SPRITES = {
+  cooking: new URL('./assets/birthday-chef.png', import.meta.url).href,
+  birthday: new URL('./assets/birthday-chef-party.png', import.meta.url).href,
+};
 const palette = { ink: '#48534b', red: '#ee7773', pink: '#f3b7b4', green: '#83ac8b', yellow: '#f2ca6b' };
 function round(c, x, y, w, h, r, fill, stroke) {
   c.beginPath(); c.roundRect(x, y, w, h, r);
@@ -31,7 +36,11 @@ function fruit(c, type) {
     ellipse(c, 0, 1, 29, 30, '#a99776'); ellipse(c, 0, 0, 25, 26, '#b5ce7c'); ellipse(c, 0, 0, 8, 10, '#f1ebc0');
     for (let i = 0; i < 10; i++) { const a = i * Math.PI / 5; ellipse(c, Math.cos(a) * 15, Math.sin(a) * 17, 1.4, 2, '#5e7154'); }
   } else if (type === 'rice') {
-    ellipse(c, 0, 23, 34, 10, '#d9ddd2'); c.beginPath(); c.moveTo(-28, 22); c.quadraticCurveTo(-24, -9, 0, -26); c.quadraticCurveTo(22, -14, 29, 22); c.closePath(); c.fillStyle = '#fffdf5'; c.fill(); c.strokeStyle = '#d9d9c9'; c.stroke(); round(c, -10, 6, 20, 22, 2, '#526f5e');
+    ellipse(c, 0, 30, 25, 6, '#d9ddd2');
+    c.beginPath(); c.moveTo(-33, -1); c.quadraticCurveTo(-29, 30, 0, 30); c.quadraticCurveTo(29, 30, 33, -1); c.closePath(); c.fillStyle = '#91b2a2'; c.fill();
+    ellipse(c, 0, -1, 33, 15, '#e6ebdb'); ellipse(c, 0, -7, 29, 18, '#fffdf5');
+    for (let i = 0; i < 12; i++) ellipse(c, (i % 4 - 1.5) * 12, (Math.floor(i / 4) - 1) * 10 - 7, 2, 4, '#ded8c3');
+    line(c, [[-17, 17], [17, 17]], '#bed2bd', 3);
   } else if (type === 'broccoli') {
     round(c, -6, 0, 13, 31, 4, '#a7bf82'); [[-17, -5], [0, -19], [18, -5], [-1, 0]].forEach(([x, y], i) => ellipse(c, x, y, 16, 17, i % 2 ? '#77a17b' : '#8bb18b'));
   }
@@ -81,12 +90,14 @@ export function art(type, size = 160) {
   else if (type === 'film') { round(c, -31, -28, 62, 66, 4, '#8eaf9b'); round(c, -20, -15, 40, 39, 1, '#fcf8ee'); round(c, -16, -11, 32, 23, 0, '#d5b8bd'); ellipse(c, -6, -3, 6, 6, '#e8d6ab'); }
   else if (type === 'candle') { ellipse(c, 0, 32, 27, 7, '#d6d6cb'); round(c, -24, -12, 48, 43, 5, '#b5b1c7'); ellipse(c, 0, -11, 24, 7, '#ede5d7'); line(c, [[0, -11], [0, -20]], '#686057', 2); ellipse(c, 0, -25, 4, 8, '#efbd62'); round(c, -15, 1, 30, 19, 2, '#f6f1e5'); heart(c, 0, 13, 12, '#b6a6b8'); }
   else if (type === 'perfume') { round(c, -27, -10, 54, 49, 7, '#e4c296', '#c8a77e'); round(c, -15, -30, 30, 19, 3, '#586e60'); round(c, -10, -12, 20, 5, 0, '#c3a261'); round(c, -18, 2, 36, 25, 2, '#fff7e8'); c.fillStyle = '#657562'; c.font = '9px Georgia'; c.textAlign = 'center'; c.fillText('FOR YOU', 0, 18); }
-  else if (type === 'cake' || type === 'cake-out') {
+  else if (type === 'cake') {
     ellipse(c, 0, 37, 43, 9, '#b9c9bd'); round(c, -34, -8, 68, 44, 8, '#e8a29e'); ellipse(c, 0, -7, 34, 13, '#fff4e2');
     for (let i = -2; i <= 2; i++) round(c, i * 12 - 4, -8, 8, 16 + (i % 2) * 5, 4, '#fff4e2');
-    round(c, -3, -35, 6, 26, 2, '#8faf95');
-    if (type === 'cake') ellipse(c, 0, -44, 4, 8, '#edbc5c');
-    else line(c, [[0, -36], [-3, -42], [1, -47]], '#b5b5a5', 1.5);
+    for (const [x, y, color, stripe] of [[-17, -29, '#dc918d', '#ffe0ce'], [0, -38, '#7ea78f', '#e3edc9'], [17, -30, '#9c9fc8', '#e8dff4']]) {
+      round(c, x - 2.5, y, 5, -6 - y, 2, color);
+      for (let row = y + 5; row < -8; row += 6) line(c, [[x - 1.4, row + 1], [x + 1.4, row - 1]], stripe, 1.6);
+      line(c, [[x, y], [x, y - 4]], '#615447', 1.4);
+    }
     heart(c, 0, 23, 18, '#fcdfcf');
   } else {
     const sky = type === 'night' ? '#697e97' : type === 'afternoon' ? '#f2cfbf' : '#b4d0d3';
@@ -105,9 +116,36 @@ export function art(type, size = 160) {
   const url = canvas.toDataURL('image/png'); cache.set(key, url); return url;
 }
 
-function chef(c, x, y, color, time, assistant = false) {
-  c.save(); c.translate(x, y + Math.sin(time * 1.4 + x) * 2);
-  ellipse(c, 0, 49, 32, 10, '#b2bdb044');
+function chef(c, x, y, color, time, assistant = false, pose = null) {
+  c.save(); c.translate(x, y + (pose ? 0 : Math.sin(time * 1.4 + x) * 2));
+  if (!pose) ellipse(c, 0, 49, 32, 10, '#b2bdb044');
+  if (!assistant) {
+    if (!chefSprite) {
+      chefSprite = new Image();
+      chefSprite.src = CHEF_SPRITES.cooking;
+    }
+    if (chefSprite.complete && chefSprite.naturalWidth) {
+      const height = 124;
+      const width = height * chefSprite.naturalWidth / chefSprite.naturalHeight;
+      if (pose) {
+        const { naturalWidth: sw, naturalHeight: sh } = chefSprite;
+        const upper = Math.floor(sh * .907);
+        const half = sw / 2;
+        const footY = 52 - height + upper / sh * height;
+        const step = pose.stride;
+        c.scale(pose.facing, 1);
+        for (const side of [-1, 1]) {
+          c.drawImage(chefSprite, side === -1 ? 0 : half, upper, half, sh - upper,
+            (side === -1 ? -width / 2 : 0) + step * side * 2, footY - Math.max(0, step * side) * 5,
+            width / 2, height * (sh - upper) / sh);
+        }
+        c.translate(0, pose.bob); c.rotate(pose.lean);
+        c.drawImage(chefSprite, 0, 0, sw, upper, -width / 2, 52 - height, width, upper / sh * height + 1);
+      } else c.drawImage(chefSprite, -width / 2, 52 - height, width, height);
+      c.restore();
+      return;
+    }
+  }
   round(c, -24, 5, 48, 42, 15, color, '#617065');
   round(c, -13, 13, 26, 31, 6, '#fcf7e8'); round(c, -9, 25, 18, 10, 3, color);
   ellipse(c, -23, 21, 8, 11, '#f4d9ba'); ellipse(c, 23, 21, 8, 11, '#f4d9ba');

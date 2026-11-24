@@ -1,30 +1,49 @@
 import Phaser from 'phaser';
-import { WORLD, stationsFor, PLAYER_SPEED, interact, stepKitchen, canChop, nearestStation } from './cooking.js';
+import { WORLD, worldFor, setKitchenLayout, stationsFor, PLAYER_SPEED, interact, stepKitchen, canChop, nearestStation } from './cooking.js';
 import { paintKitchen } from './kitchen-art.js';
 import { bindCookingControls } from './controls.js';
+import { CHOP_BEAT } from './kitchen-sounds.js';
 
-export function startCooking(host, controlsRoot, kitchen, callbacks) {
+export function startCooking(host, controlsRoot, kitchen, callbacks, polish = false) {
   let game;
   let scene;
   let player;
   let stopped = false;
   let paused = false;
-  let landscape = false;
+  let workingModal = false;
+  let landscape = kitchen.layout === 'landscape';
   let controls;
   let vector = { x: 0, y: 0 };
   let chopping = false;
+  let solids;
+  let room;
   let lastHUD = 0;
   let lastPaint = 0;
-  let deliveredNotified = kitchen.delivered;
+  const motion = polish ? matchMedia('(prefers-reduced-motion: reduce)') : null;
+  let facing = 1;
+  let gait = 0;
+  let action = null;
+  let serving = null;
+  let expiredNotified = kitchen.expired;
+  let ordersNotified = kitchen.deliveries;
+  let missedNotified = kitchen.missedOrders;
   const signal = (force = false) => {
     if (stopped) return;
     host.dataset.playerX = kitchen.player.x.toFixed(1); host.dataset.playerY = kitchen.player.y.toFixed(1);
-    if (force || performance.now() - lastHUD > 100) {
-      lastHUD = performance.now(); callbacks.onUpdate(kitchen);
+    const served = kitchen.deliveries !== ordersNotified ? kitchen.lastServedOrder : null;
+    const missed = kitchen.missedOrders !== missedNotified ? kitchen.lastMissedOrderIds : null;
+    ordersNotified = kitchen.deliveries;
+    missedNotified = kitchen.missedOrders;
+    if (polish && served) {
+      serving = { stationId: served.stationId, time: performance.now() };
+      callbacks.onKitchenCue?.('serve');
+    }
+    if (force || served || missed || performance.now() - lastHUD > 100) {
+      lastHUD = performance.now(); callbacks.onUpdate(kitchen, served || missed ? { served, missed } : null);
       host.dataset.nearest = nearestStation(kitchen)?.id || '';
       host.dataset.holding = kitchen.holding?.type === 'ingredient' ? kitchen.holding.id : kitchen.holding?.type || '';
     }
-    if (kitchen.delivered && !deliveredNotified) { deliveredNotified = true; callbacks.onDelivered(); }
+    if (kitchen.expired && !expiredNotified) { expiredNotified = true; callbacks.onExpired?.(); }
   };
   const resetInput = () => {
     vector = { x: 0, y: 0 }; chopping = false; controls?.reset();
@@ -32,41 +51,72 @@ export function startCooking(host, controlsRoot, kitchen, callbacks) {
   };
   const resizeView = () => {
     if (!scene || stopped) return;
-    const height = landscape ? 600 : WORLD.height;
-    if (scene.scale.gameSize.height !== height) scene.scale.resize(WORLD.width, height);
-    scene.cameras.main.setScroll(0, landscape ? 120 : 0);
+    const world = worldFor(kitchen);
+    const ratio = host.clientWidth / Math.max(1, host.clientHeight);
+    const width = landscape ? Math.ceil(Math.max(world.width, world.height * ratio)) : world.width;
+    const height = landscape ? Math.ceil(Math.max(world.height, world.width / ratio)) : world.height;
+    if (scene.scale.gameSize.width !== width || scene.scale.gameSize.height !== height) {
+      scene.scale.setGameSize(width, height);
+      scene.roomTexture.setSize(width, height);
+      room.setTexture('kitchen-art').setPosition(-(width - world.width) / 2, -(height - world.height) / 2);
+    }
+    scene.cameras.main.setScroll(-(width - world.width) / 2, -(height - world.height) / 2);
+    host.dataset.layout = landscape ? 'landscape' : 'desktop';
     scene.scale.refresh();
+    lastPaint = 0;
   };
   const resizeObserver = new ResizeObserver(resizeView);
   resizeObserver.observe(host);
   const operate = (id) => {
     if (stopped || paused || document.hidden) return;
+    const deliveries = kitchen.deliveries;
+    const target = polish ? id ?? nearestStation(kitchen)?.id : null;
+    const held = kitchen.holding;
+    const portions = held?.contents?.length;
+    const ovenItem = kitchen.oven.item;
+    const potItem = kitchen.pot.item;
     interact(kitchen, id);
+    if (target && kitchen.deliveries === deliveries && !kitchen.packing.openRequested
+      && (held !== kitchen.holding || portions !== kitchen.holding?.contents?.length
+          || ovenItem !== kitchen.oven.item || potItem !== kitchen.pot.item)) {
+      const kind = target === 'oven' ? 'oven' : !held && kitchen.holding ? 'take' : 'place';
+      action = { stationId: target, time: performance.now() };
+      callbacks.onKitchenCue?.(kind);
+    }
     if (kitchen.puzzle.openRequested) { kitchen.puzzle.openRequested = false; callbacks.onPuzzle?.(); }
+    if (kitchen.photo.openRequested) { kitchen.photo.openRequested = false; callbacks.onPhoto?.(); }
+    if (kitchen.packing.openRequested) { kitchen.packing.openRequested = false; callbacks.onPacking?.(); }
     signal(true);
   };
   controls = bindCookingControls(controlsRoot, {
     move: (x, y) => { vector = { x, y }; },
     chop: active => { chopping = active; },
   });
+  const rebuildStations = () => {
+    solids.clear(true, true);
+    const world = worldFor(kitchen);
+    scene.physics.world.setBounds(24, landscape ? 24 : 246, world.width - 48, world.height - (landscape ? 48 : 269));
+    player.setPosition(kitchen.player.x, kitchen.player.y);
+    player.body.reset(kitchen.player.x, kitchen.player.y);
+    stationsFor(kitchen).forEach(s => {
+      const zone = scene.add.zone(s.x + s.w / 2, s.y + s.h / 2, s.w, s.h);
+      scene.physics.add.existing(zone, true); solids.add(zone);
+      zone.setInteractive();
+      zone.on('pointerdown', () => operate(s.id));
+    });
+  };
   class KitchenScene extends Phaser.Scene {
     create() {
       if (stopped) return;
       scene = this;
       const texture = this.textures.createCanvas('kitchen-art', WORLD.width, WORLD.height);
-      this.add.image(0, 0, 'kitchen-art').setOrigin(0);
+      room = this.add.image(0, 0, 'kitchen-art').setOrigin(0);
       this.roomTexture = texture;
-      this.physics.world.setBounds(24, 246, 792, 451);
       player = this.add.zone(kitchen.player.x, kitchen.player.y, 40, 40);
       this.physics.add.existing(player);
       player.body.setCircle(19, 1, 1).setCollideWorldBounds(true);
-      const solids = this.physics.add.staticGroup();
-      stationsFor(kitchen).forEach(s => {
-        const zone = this.add.zone(s.x + s.w / 2, s.y + s.h / 2, s.w, s.h);
-        this.physics.add.existing(zone, true); solids.add(zone);
-        zone.setInteractive();
-        zone.on('pointerdown', () => operate(s.id));
-      });
+      solids = this.physics.add.staticGroup();
+      rebuildStations();
       this.physics.add.collider(player, solids);
       this.keys = this.input.keyboard.addKeys({
         up: Phaser.Input.Keyboard.KeyCodes.W, down: Phaser.Input.Keyboard.KeyCodes.S,
@@ -84,22 +134,42 @@ export function startCooking(host, controlsRoot, kitchen, callbacks) {
     update(time, delta) {
       if (stopped || !player?.body) return;
       const editing = /INPUT|TEXTAREA|SELECT/.test(document.activeElement?.tagName);
-      const inactive = paused || document.hidden || editing || kitchen.delivered;
-      this.input.keyboard.enabled = !inactive;
+      const inactive = paused || document.hidden || editing || kitchen.delivered || kitchen.expired;
+      const queueFocused = !!document.activeElement?.closest('.order-queue');
+      this.input.keyboard.enabled = !inactive && !queueFocused;
       let vx = 0; let vy = 0;
       if (!inactive) {
-        vx = vector.x + Number(this.keys.right.isDown || this.keys.arrowRight.isDown) - Number(this.keys.left.isDown || this.keys.arrowLeft.isDown);
-        vy = vector.y + Number(this.keys.down.isDown || this.keys.arrowDown.isDown) - Number(this.keys.up.isDown || this.keys.arrowUp.isDown);
+        vx = vector.x + (queueFocused ? 0 : Number(this.keys.right.isDown || this.keys.arrowRight.isDown) - Number(this.keys.left.isDown || this.keys.arrowLeft.isDown));
+        vy = vector.y + (queueFocused ? 0 : Number(this.keys.down.isDown || this.keys.arrowDown.isDown) - Number(this.keys.up.isDown || this.keys.arrowUp.isDown));
         const magnitude = Math.hypot(vx, vy);
         if (magnitude > 1) { vx /= magnitude; vy /= magnitude; }
-        if (Phaser.Input.Keyboard.JustDown(this.keys.use)) operate();
+        if (!queueFocused && Phaser.Input.Keyboard.JustDown(this.keys.use)) operate();
       }
-      const isChopping = !inactive && (chopping || this.keys.chop.isDown) && canChop(kitchen) && Math.hypot(vx, vy) < .1;
+      const isChopping = !inactive && (chopping || (!queueFocused && this.keys.chop.isDown)) && canChop(kitchen) && Math.hypot(vx, vy) < .1;
+      const dx = player.x - kitchen.player.x;
+      const distance = Math.hypot(dx, player.y - kitchen.player.y);
+      const walking = distance > .15 && !inactive;
+      if (polish && isChopping) {
+        const board = nearestStation(kitchen);
+        if (board) facing = board.x + board.w / 2 < player.x ? -1 : 1;
+      } else if (walking && Math.abs(dx) > .15) facing = Math.sign(dx);
+      if (walking) gait += distance / 11;
       player.body.setVelocity(inactive || isChopping ? 0 : vx * PLAYER_SPEED, inactive || isChopping ? 0 : vy * PLAYER_SPEED);
       kitchen.player.x = player.x; kitchen.player.y = player.y;
-      if (!inactive) stepKitchen(kitchen, Math.min(delta / 1000, .06), isChopping);
+      const progress = kitchen.board.progress;
+      if (!document.hidden && (!paused || workingModal)) stepKitchen(kitchen, delta / 1000, isChopping);
+      if (polish && isChopping && Math.floor(kitchen.board.progress / CHOP_BEAT) > Math.floor(progress / CHOP_BEAT)) {
+        callbacks.onKitchenCue?.('chop');
+      }
       if (time - lastPaint >= 30 || lastPaint === 0) {
-        lastPaint = time; paintKitchen(this.roomTexture.context, kitchen, time / 1000, !!(vx || vy) && !inactive, isChopping);
+        lastPaint = time;
+        const now = performance.now();
+        const age = action ? (now - action.time) / 1000 : Infinity;
+        const servingAge = serving ? (now - serving.time) / 1000 : Infinity;
+        paintKitchen(this.roomTexture.context, kitchen, time / 1000, polish ? walking : !!(vx || vy) && !inactive, isChopping,
+          polish ? { facing, gait, reduced: motion.matches,
+            serving: servingAge < .68 ? { stationId: serving.stationId, age: servingAge } : null,
+            action: age < .52 ? { ...action, age } : null } : null);
         this.roomTexture.refresh();
       }
       signal();
@@ -115,7 +185,7 @@ export function startCooking(host, controlsRoot, kitchen, callbacks) {
   });
   const handleBlur = () => resetInput();
   const captureKeys = event => {
-    if (!paused && !/INPUT|TEXTAREA|SELECT/.test(document.activeElement?.tagName)
+    if (!paused && !document.activeElement?.closest('.order-queue') && !/INPUT|TEXTAREA|SELECT/.test(document.activeElement?.tagName)
       && ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', ' '].includes(event.key)) event.preventDefault();
   };
   window.addEventListener('blur', handleBlur);
@@ -125,10 +195,16 @@ export function startCooking(host, controlsRoot, kitchen, callbacks) {
     interact: operate,
     setLandscape(value) {
       if (landscape === value) return;
-      landscape = value; resetInput(); resizeView();
+      landscape = value; resetInput();
+      setKitchenLayout(kitchen, value);
+      if (scene) {
+        rebuildStations();
+        resizeView();
+        signal(true);
+      }
     },
-    setPaused(value) {
-      paused = value; resetInput();
+    setPaused(value, keepWorking = false) {
+      paused = value; workingModal = keepWorking; resetInput();
       if (scene) scene.input.keyboard.enabled = !value;
       signal(true);
     },

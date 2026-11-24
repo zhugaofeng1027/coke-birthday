@@ -1,4 +1,5 @@
-const preview = new URLSearchParams(window.location.search).get('preview');
+const params = new URLSearchParams(window.location.search);
 
-if (preview === 'phone') await import('./phone-preview.js');
+if (params.get('preview') === 'phone') await import('./phone-preview.js');
+else if (import.meta.env.DEV && params.get('score-fx') === '1') await import('./score-fx-preview.js');
 else await import('./main.js');

@@ -67,5 +67,33 @@ export function normalizeProgress(raw) {
   // Only contiguous completion is valid, so a damaged save cannot skip presents.
   const contiguous = [];
   for (let i = 0; i < 6 && completed.includes(i); i++) contiguous.push(i);
-  return { completed: contiguous, finished: contiguous.length === 6 && raw?.finished === true };
+  const finished = contiguous.length === 6 && raw?.finished === true;
+  const room = raw?.flowerRoom;
+  const phase = room?.phase;
+  const flower = FLOWER_COLORS.includes(room?.flower) ? room.flower : null;
+  const progress = { completed: contiguous, finished };
+  if (contiguous.length === 6 && (!finished || (phase === 'done' && flower))) {
+    const valid = EARLY_FLOWER_PHASES.includes(phase) || (flower && ['light', 'reveal', 'done'].includes(phase));
+    progress.flowerRoom = valid ? { phase, flower } : newFlowerRoom();
+  }
+  return progress;
+}
+
+const EARLY_FLOWER_PHASES = ['door', 'box', 'figure', 'flowers'];
+const FLOWER_COLORS = ['blue', 'pink'];
+export const newFlowerRoom = () => ({ phase: 'door', flower: null });
+
+export function advanceFlowerRoom(room, action, color) {
+  if (room?.phase === 'flowers' && action === 'flower-pick' && FLOWER_COLORS.includes(color)) {
+    return { phase: 'light', flower: color };
+  }
+  const next = {
+    'flower-enter': ['door', 'box'],
+    'flower-open': ['box', 'figure'],
+    'flower-place': ['figure', 'flowers'],
+    'flower-light': ['light', 'reveal'],
+    'flower-finish': ['reveal', 'done'],
+  }[action];
+  if (!next || room?.phase !== next[0]) return room;
+  return { ...room, phase: next[1] };
 }

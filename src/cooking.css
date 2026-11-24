@@ -1,5 +1,19 @@
 [hidden] { display: none !important; }
 .cooking-mode .site-header { height: 82px; }
+.cooking-mode .header-dedication { display: none; }
+.shift-hud { display: flex; align-items: center; justify-content: center; flex: 1; min-width: 0; gap: 24px; color: #425e53; }
+.shift-hud > span { display: inline-flex; align-items: center; gap: 7px; white-space: nowrap; }
+.shift-hud svg { width: 19px; height: 19px; flex-shrink: 0; }
+.shift-clock strong { font-size: 23px; font-variant-numeric: tabular-nums; min-width: 70px; }
+.shift-score { color: #a16644; }
+.shift-score strong { font-size: 18px; font-variant-numeric: tabular-nums; min-width: 92px; }
+.shift-hud.urgent .shift-clock { color: #be4949; }
+.shift-hud.urgent .shift-clock svg { animation: clock-pulse 1s ease-in-out infinite; }
+@keyframes clock-pulse { 50% { opacity: .4; } }
+.challenge-result { display: grid; gap: 14px; margin: 26px 0; color: #7a8878; font-size: 13px; }
+.challenge-result > strong { color: #a16644; font-size: 40px; font-variant-numeric: tabular-nums; }
+.challenge-result small { font-size: 18px; font-weight: 400; }
+.order-sequence { color: #a16644; font-size: 10px; }
 .cooking-mode .app-main { max-width: 1420px; padding-top: 25px; }
 .cooking-mode .welcome-line { padding-bottom: 24px; }
 .cooking-mode .welcome-line h1 { font-size: 23px; }
@@ -13,12 +27,18 @@
 .cooking-mode .kitchen-scene { aspect-ratio: 840 / 720; background: #e5eadf; border: 1px solid #dce2d3; border-radius: 7px; touch-action: none; }
 .cooking-mode #kitchen { display: block; touch-action: none; }
 .mobile-recipe { display: none; }
+.queue-summary { margin: 9px 0; color: #a16644; font-size: 10px; line-height: 1.8; }
 .theme-clue { border-top: 1px dashed #d9ddd3; padding-top: 14px; margin-top: 12px; }
 .theme-clue strong { font-size: 11px; color: #657e77; }
 .theme-clue p { font-size: 11px; line-height: 1.9; color: #87948b; margin: 8px 0; }
 .theme-progress { font-size: 10px; color: #b07c76; }
 .unknown-fruit { width: 41px; height: 41px; display: grid; place-items: center; color: #bd8a97; flex: 0 0 auto; }
 .puzzle-clue { font-size: 14px; line-height: 1.9; color: #647c73; margin: 15px 0; }
+.modal.kitchen-clue-modal { width: min(100%, 560px); padding: 32px; text-align: left; }
+.clue-source { display: flex; align-items: center; gap: 7px; margin: 0 28px 16px 0; color: #7b8777; font-size: 12px; }
+.clue-source svg { width: 17px; height: 17px; flex-shrink: 0; color: #ba776d; }
+.kitchen-clue-modal h2 { color: #425c55; font-size: 22px; }
+.clue-copy { margin: 18px 0 24px; color: #4d665c; font-size: 16px; line-height: 1.9; overflow-wrap: anywhere; }
 .puzzle-choices, .puzzle-order, .shape-choices { display: flex; gap: 12px; margin: 18px 0; }
 .puzzle-choice, .shape-choices > label { flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; padding: 12px 4px; border: 1px solid #dce2db; border-radius: 6px; font-size: 12px; cursor: pointer; }
 .puzzle-choice:has(input:checked), .shape-choices > label:has(input:checked) { background: #e8f1ed; border-color: #729a87; }
@@ -93,6 +113,8 @@
 .kitchen-feedback.gentle { color: #b0916e; }
 .kitchen-feedback.success { color: #7f9c6c; }
 .icon-button.debug-active { color: #a65865; background: #f5e3e7; border-color: #deb5c0; }
+.icon-button.ending-debug-control { position: fixed; z-index: 10; right: max(12px, env(safe-area-inset-right)); bottom: max(12px, env(safe-area-inset-bottom)); }
+.ending-debug-control[data-tooltip]:hover::after { inset: auto 0 calc(100% + 9px) auto; transform: none; }
 .debug-modal { max-width: 440px; }
 .debug-modes { border: 0; padding: 0; margin: 0 0 20px; display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 .debug-modes legend { margin-bottom: 9px; font-size: 12px; color: #657b67; }
@@ -103,7 +125,7 @@
 .debug-modes input:focus-visible + span { outline: 2px solid #8a9e81; outline-offset: 3px; }
 .debug-chapter { display: grid; gap: 8px; font-size: 12px; color: #657b67; margin-bottom: 20px; }
 .birthday-note-button { margin-top: 4px; }
-.landscape-order, .landscape-tool, .rotation-prompt { display: none; }
+.landscape-tool, .rotation-prompt { display: none; }
 .forced-landscape .desktop-preview-button { display: none !important; }
 @media (pointer: coarse) {
   .desktop-preview-button { display: none !important; }
@@ -200,89 +222,99 @@ body.needs-rotation { overflow: hidden; }
   .mobile-recipe .recipe-part small { font-size: 6px; }
 }
 
-/* A fixed-height playfield leaves both thumb zones outside the kitchen. */
+/* The kitchen fills the viewport; thumb controls float over clear floor. */
 body.landscape-play {
-  --play-header: 46px;
-  --thumb-width: 120px;
-  --play-gap: 12px;
+  --play-header: 38px;
   height: 100dvh;
   min-height: 0;
   overflow: hidden;
   overscroll-behavior: none;
 }
-.landscape-play #app { height: 100%; display: flex; flex-direction: column; padding: env(safe-area-inset-top) max(10px, env(safe-area-inset-right)) max(4px, env(safe-area-inset-bottom)) max(10px, env(safe-area-inset-left)); }
-.landscape-play .site-header { height: var(--play-header); min-height: var(--play-header); padding: 0 4px; gap: 12px; background: transparent; }
+.landscape-play #app { height: 100%; display: flex; flex-direction: column; padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left); }
+.landscape-play .site-header { height: var(--play-header); min-height: var(--play-header); padding: 0 15px; gap: 10px; background: #fbfcf8; border-bottom: 1px solid #a9c5b3; }
 .landscape-play .brand { gap: 7px; }
-.landscape-play .brand-mark { width: 28px; height: 28px; border-radius: 7px 7px 7px 3px; }
-.landscape-play .brand-mark svg { width: 20px; height: 20px; }
+.landscape-play .brand-mark { width: 24px; height: 24px; border-radius: 6px; }
+.landscape-play .brand-mark svg { width: 18px; height: 18px; }
 .landscape-play .brand strong { font-size: 15px; }
 .landscape-play .brand small, .landscape-play .header-dedication, .landscape-play .open-badge { display: none; }
-.landscape-play .landscape-order { display: flex; flex: 1; min-width: 0; flex-direction: column; align-items: center; gap: 3px; line-height: 1.4; }
-.landscape-order > span { color: #7e8b73; font-size: 9px; }
-.landscape-order > strong { font-size: 13px; font-weight: 600; text-align: center; overflow-wrap: anywhere; }
-.landscape-play .header-actions { gap: 1px; flex-shrink: 0; }
-.landscape-play .header-actions .icon-button { display: inline-flex; width: 40px; height: 42px; padding: 0; }
-.landscape-play .header-actions svg { width: 18px; height: 18px; }
+.landscape-play .shift-hud { gap: 18px; }
+.landscape-play .shift-hud > span { gap: 5px; }
+.landscape-play .shift-hud svg { width: 15px; height: 15px; }
+.landscape-play .shift-clock strong { font-size: 19px; min-width: 54px; }
+.landscape-play .shift-score strong { font-size: 15px; min-width: 72px; }
+.landscape-play .header-actions { gap: 5px; flex-shrink: 0; }
+.landscape-play .header-actions .icon-button { display: inline-flex; width: 28px; height: 32px; padding: 0; }
+.landscape-play .header-actions svg { width: 17px; height: 17px; }
 .landscape-play [data-tooltip]:hover::after { display: none; }
-.landscape-play .app-main { flex: 1; min-height: 0; width: 100%; max-width: none; padding: 8px 0 0; margin: 0; position: relative; }
+.landscape-play .app-main { flex: 1; min-height: 0; width: 100%; max-width: none; padding: 0; margin: 0; position: relative; }
 .landscape-play .welcome-line, .landscape-play .menu-column, .landscape-play .order-column, .landscape-play .site-footer { display: none; }
 .landscape-play .restaurant { display: block; height: 100%; }
 .landscape-play .game-column {
-  display: grid;
-  grid-template-columns: var(--thumb-width) minmax(0, 1fr) var(--thumb-width);
-  grid-template-rows: minmax(0, 1fr) 30px;
-  column-gap: var(--play-gap);
+  display: block;
   height: 100%;
   width: 100%;
   position: relative;
 }
-.landscape-play .kitchen-scene { grid-column: 2; grid-row: 1; align-self: stretch; width: 100%; height: 100%; min-height: 0; aspect-ratio: auto; background: #e5eadf; border: 0; border-radius: 5px; box-shadow: none; }
+.landscape-play .kitchen-scene { position: absolute; inset: 0; width: 100%; height: 100%; min-height: 0; aspect-ratio: auto; background: #e5eadf; border: 0; border-radius: 0; box-shadow: none; }
 .landscape-play .kitchen-scene canvas { position: absolute; }
 .landscape-play .scene-heading { display: contents; }
 .landscape-play .scene-heading > div { display: none; }
-.landscape-play .scene-heading > .text-button { grid-column: 3; grid-row: 2; justify-self: center; min-height: 30px; margin: 0; padding: 0 8px; font-size: 10px; }
-.landscape-play .mobile-recipe { display: flex; flex-direction: column; align-items: stretch; grid-column: 1; grid-row: 1; align-self: start; gap: 5px; padding: 6px 3px; margin: 0; border: 0; }
-.landscape-play .mobile-recipe .recipe-part { display: flex; flex: 0 0 auto; padding: 0; gap: 5px; min-height: 34px; }
-.landscape-play .mobile-recipe .recipe-part > img { width: 29px; height: 29px; }
-.landscape-play .unknown-fruit { width: 29px; height: 29px; }
+.landscape-play .scene-heading > .text-button { position: absolute; z-index: 2; bottom: 4px; right: 13px; width: 28px; height: 28px; min-height: 28px; margin: 0; padding: 0; font-size: 0; }
+.landscape-play .scene-heading > .text-button svg { width: 16px; height: 16px; }
+.landscape-play .mobile-recipe { position: absolute; z-index: 2; top: 9px; left: 16px; display: flex; flex-direction: row; align-items: center; gap: 9px; max-width: calc(100% - 180px); height: 35px; padding: 3px 9px; margin: 0; background: #fffdf2ed; border: 1px solid #d4decb; border-radius: 6px; box-shadow: 0 2px 4px #56755c10; }
+.landscape-play .mobile-recipe .recipe-part { display: flex; flex: 0 1 auto; padding: 0; gap: 5px; min-height: 0; }
+.landscape-play .mobile-recipe .recipe-part > img { width: 25px; height: 25px; }
+.landscape-play .unknown-fruit { width: 25px; height: 25px; }
 .landscape-play .mobile-recipe .recipe-part > span:nth-child(2) { gap: 2px; }
-.landscape-play .mobile-recipe .recipe-part strong { font-size: 11px; }
-.landscape-play .mobile-recipe .recipe-part small { font-size: 9px; line-height: 1.5; white-space: normal; color: #7c8a70; }
+.landscape-play .mobile-recipe .recipe-part strong { font-size: 10px; white-space: nowrap; }
+.landscape-play .mobile-recipe .recipe-part small { font-size: 8px; line-height: 1.4; white-space: nowrap; color: #7c8a70; }
 .landscape-play .mobile-recipe .recipe-part-check { display: none; }
 .landscape-play .mobile-recipe .recipe-part.plated strong::after { content: ' ✓'; color: #6d8c60; }
 .landscape-play .cooking-controls { display: contents; }
-.landscape-play .joystick { grid-column: 1; grid-row: 1; align-self: end; justify-self: center; margin-bottom: 15px; width: 112px; height: 112px; }
+.landscape-play .joystick { position: absolute; z-index: 2; bottom: 16px; left: 24px; margin: 0; width: 104px; height: 104px; background: #f5fae488; border-color: #a4bb8b88; }
 .landscape-play .joystick-knob { width: 44px; height: 44px; inset: calc(50% - 22px); border-width: 3px; }
 .landscape-play .joystick::before { inset: 17px; }
 .landscape-play .stick-direction.up { top: -4px; }
 .landscape-play .stick-direction.down { bottom: -4px; }
 .landscape-play .stick-direction.left { left: -4px; }
 .landscape-play .stick-direction.right { right: -4px; }
-.landscape-play .hands-status { grid-column: 3; grid-row: 1; align-self: start; padding: 8px 0 0; gap: 3px; }
-.landscape-play .hands-status > small { font-size: 9px; }
-.landscape-play #hands-icon { width: 36px; height: 30px; }
-.landscape-play #hands-icon img { width: 34px; height: 34px; }
-.landscape-play #hands-name { max-width: 116px; font-size: 11px; line-height: 1.5; }
-.landscape-play #nearby-station { font-size: 9px; }
-.landscape-play .cooking-buttons { grid-column: 3; grid-row: 1; align-self: end; justify-self: center; flex-direction: column; gap: 13px; margin-bottom: 12px; }
-.landscape-play .cook-button { width: 66px; height: 66px; gap: 4px; padding: 6px; }
-.landscape-play .cook-button > svg { width: 22px; height: 22px; }
-.landscape-play .cook-button > span:not(.chop-meter) { font-size: 10px; }
-.landscape-play .interact-button { width: 80px; height: 80px; }
-.landscape-play .kitchen-feedback { grid-column: 2; grid-row: 2; min-height: 0; min-width: 0; padding: 2px 0 0; font-size: 10px; line-height: 1.4; overflow-wrap: anywhere; }
-.landscape-play .birthday-note-button:not([hidden]) { position: absolute; bottom: 35px; left: calc(var(--thumb-width) + var(--play-gap) + 8px); width: calc(100% - 2 * (var(--thumb-width) + var(--play-gap) + 8px)); min-height: 35px; padding: 6px; margin: 0; font-size: 11px; z-index: 3; }
+.landscape-play .hands-status { position: absolute; z-index: 2; top: 12px; right: 18px; padding: 0; gap: 6px; flex-direction: row; max-width: 150px; }
+.landscape-play .hands-status > small, .landscape-play #nearby-station { display: none; }
+.landscape-play #hands-icon { width: 22px; height: 22px; flex: 0 0 22px; }
+.landscape-play #hands-icon svg { width: 18px; height: 18px; }
+.landscape-play #hands-icon img { width: 22px; height: 22px; }
+.landscape-play #hands-name { max-width: 120px; font-size: 10px; line-height: 1.4; text-align: right; }
+.landscape-play #kitchen-host:is([data-theme="2"], [data-theme="4"]) ~ .cooking-controls :is(#hands-name, #hands-icon) { color: #fff5dd; }
+.landscape-play .cooking-buttons { position: absolute; z-index: 2; bottom: 29px; right: 23px; flex-direction: row; align-items: flex-end; gap: 10px; margin: 0; }
+.landscape-play .cook-button { width: 53px; height: 53px; padding: 0; border: 2px solid #fff6; }
+.landscape-play .chop-button { margin-bottom: 38px; }
+.landscape-play .cook-button > svg { width: 24px; height: 24px; }
+.landscape-play .cook-button > span:not(.chop-meter) { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+.landscape-play .interact-button { width: 76px; height: 76px; background: #db9b85eb; }
+.landscape-play .interact-button > svg { width: 32px; height: 32px; }
+.landscape-play .interact-button:disabled { background: #db9b85b8; color: #fff9ee; }
+.landscape-play .chop-button:disabled { background: #eef2d3da; }
+.landscape-play .kitchen-feedback { position: absolute; z-index: 1; bottom: 7px; left: 50%; transform: translateX(-50%); max-width: calc(100% - 310px); min-height: 0; padding: 4px 12px; font-size: 10px; line-height: 1.4; color: #647e65; background: #f6f9ebdc; border-radius: 4px; overflow-wrap: anywhere; pointer-events: none; }
+.landscape-play .birthday-note-button:not([hidden]) { position: absolute; bottom: 36px; left: 150px; width: calc(100% - 320px); min-height: 35px; padding: 6px; margin: 0; font-size: 11px; z-index: 3; }
 .landscape-play .modal-backdrop { padding: max(10px, env(safe-area-inset-top)) max(14px, env(safe-area-inset-right)) max(10px, env(safe-area-inset-bottom)) max(14px, env(safe-area-inset-left)); }
 .landscape-play .modal { max-height: calc(100dvh - max(10px, env(safe-area-inset-top)) - max(10px, env(safe-area-inset-bottom))); padding: 24px; }
 .landscape-play .modal h2 { font-size: 20px; }
-.landscape-play .debug-modal { padding: 18px 24px; }
-.landscape-play .debug-modal .modal-eyebrow { margin: 0 24px 8px; }
-.landscape-play .debug-modal .modal-subtitle { margin: 7px 0 13px; }
-.landscape-play #debug-form { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 12px; text-align: left; }
-.landscape-play .debug-modes { margin: 0; gap: 5px; }
-.landscape-play .debug-modes legend { margin-bottom: 8px; }
-.landscape-play .debug-modes span { padding: 11px 4px; }
-.landscape-play .debug-chapter { margin: 0; align-content: start; }
-.landscape-play #debug-form > button { grid-column: 1 / -1; margin: 0; }
+.landscape-play .kitchen-clue-modal { padding: 22px 28px; }
+.landscape-play .kitchen-clue-modal .clue-source { margin-bottom: 10px; }
+.landscape-play .kitchen-clue-modal h2 { font-size: 20px; }
+.landscape-play .kitchen-clue-modal .clue-copy { margin: 12px 0 18px; font-size: 16px; line-height: 1.8; }
+@media (orientation: landscape) and (max-height: 600px) {
+  .debug-modal { padding: 18px 24px; }
+  .debug-modal .modal-eyebrow { margin: 0 24px 8px; }
+  .debug-modal .modal-subtitle { margin: 7px 0 13px; }
+  #debug-form { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 12px; text-align: left; }
+  .debug-modes { margin: 0; gap: 5px; }
+  .debug-modes legend { margin-bottom: 8px; }
+  .debug-modes span { padding: 11px 4px; }
+  .debug-chapter { margin: 0; align-content: start; }
+  .debug-chapter .text-input { font-size: 13px; }
+  #debug-form > button { grid-column: 1 / -1; margin: 0; }
+}
 .landscape-play .kitchen-puzzle-modal { width: min(100%, 760px); display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr); align-items: center; gap: 22px; padding: 20px; }
 .landscape-play .puzzle-story { text-align: left; min-width: 0; }
 .landscape-play .puzzle-story .modal-eyebrow { margin: 0 15px 12px 0; }
@@ -304,8 +336,12 @@ body.landscape-play {
 .landscape-play .text-input, .landscape-play textarea { font-size: 16px; }
 .landscape-play #toast { bottom: max(35px, env(safe-area-inset-bottom)); font-size: 11px; padding: 9px 14px; max-width: calc(100% - 48px); }
 @media (max-height: 360px) and (orientation: landscape) {
-  body.landscape-play { --play-header: 40px; --thumb-width: 104px; --play-gap: 8px; }
+  body.landscape-play { --play-header: 38px; }
   .landscape-play .kitchen-puzzle-modal { padding: 16px; gap: 14px; }
+  .landscape-play .kitchen-clue-modal { padding: 20px 24px; }
+  .landscape-play .kitchen-clue-modal .clue-source { font-size: 11px; margin-bottom: 8px; }
+  .landscape-play .kitchen-clue-modal h2 { font-size: 18px; }
+  .landscape-play .kitchen-clue-modal .clue-copy { font-size: 15px; margin: 10px 0 14px; }
   .landscape-play .puzzle-story .modal-eyebrow { margin-bottom: 8px; }
   .landscape-play .puzzle-story h2 { font-size: 16px; }
   .landscape-play .puzzle-clue { margin: 8px 0; font-size: 11px; line-height: 1.7; }
@@ -314,27 +350,291 @@ body.landscape-play {
   .landscape-play .puzzle-order { margin: 8px 0; }
   .landscape-play #kitchen-puzzle-form .primary-button { min-height: 38px; padding: 7px 5px; }
   .landscape-play .site-header { gap: 6px; }
-  .landscape-play .header-actions .icon-button { width: 36px; height: 38px; }
-  .landscape-play .landscape-order { gap: 1px; }
-  .landscape-play .landscape-order > strong { font-size: 12px; }
-  .landscape-play .app-main { padding-top: 4px; }
-  .landscape-play .game-column { grid-template-rows: minmax(0, 1fr) 26px; }
-  .landscape-play .joystick { width: 96px; height: 96px; margin-bottom: 6px; }
+  .landscape-play .header-actions .icon-button { width: 26px; height: 32px; }
+  .landscape-play .app-main { padding-top: 0; }
+  .landscape-play .joystick { width: 82px; height: 82px; bottom: 12px; left: 20px; }
   .landscape-play .joystick-knob { width: 38px; height: 38px; inset: calc(50% - 19px); }
-  .landscape-play .mobile-recipe { gap: 2px; padding: 0; }
-  .landscape-play .mobile-recipe .recipe-part { min-height: 31px; }
-  .landscape-play .mobile-recipe .recipe-part > img { width: 25px; height: 25px; }
-  .landscape-play .unknown-fruit { width: 25px; height: 25px; }
-  .landscape-play .mobile-recipe .recipe-part strong { font-size: 10px; }
-  .landscape-play .hands-status { padding-top: 2px; gap: 1px; }
+  .landscape-play .mobile-recipe { top: 6px; height: 28px; gap: 7px; padding: 2px 7px; }
+  .landscape-play .mobile-recipe .recipe-part { min-height: 0; gap: 3px; }
+  .landscape-play .mobile-recipe .recipe-part > img, .landscape-play .unknown-fruit { width: 21px; height: 21px; }
+  .landscape-play .mobile-recipe .recipe-part strong { font-size: 9px; }
+  .landscape-play .mobile-recipe .recipe-part small { font-size: 7px; }
+  .landscape-play .hands-status { top: 8px; gap: 4px; }
   .landscape-play .hands-status > small { display: none; }
-  .landscape-play #hands-icon { height: 26px; }
+  .landscape-play #hands-icon { height: 22px; }
   .landscape-play #hands-name { font-size: 10px; max-width: 104px; }
   .landscape-play #nearby-station { font-size: 8px; }
-  .landscape-play .cooking-buttons { gap: 10px; margin-bottom: 5px; }
-  .landscape-play .cook-button { width: 59px; height: 59px; }
-  .landscape-play .interact-button { width: 70px; height: 70px; }
-  .landscape-play .cook-button > span:not(.chop-meter) { font-size: 9px; }
-  .landscape-play .kitchen-feedback { font-size: 9px; }
-  .landscape-play .scene-heading > .text-button { min-height: 26px; font-size: 9px; }
+  .landscape-play .cooking-buttons { gap: 8px; bottom: 26px; right: 20px; }
+  .landscape-play .cook-button { width: 44px; height: 44px; }
+  .landscape-play .chop-button { margin-bottom: 30px; }
+  .landscape-play .interact-button { width: 64px; height: 64px; }
+  .landscape-play .kitchen-feedback { font-size: 9px; padding: 3px 10px; bottom: 5px; }
+}
+@media (max-width: 620px) {
+  .landscape-play .site-header { padding: 0 10px; }
+  .landscape-play .brand strong { font-size: 12px; }
+  .landscape-play .brand { gap: 5px; }
+  .landscape-play .header-actions { gap: 1px; }
+  .landscape-play .shift-hud { gap: 9px; }
+  .landscape-play .shift-clock strong { font-size: 17px; min-width: 48px; }
+  .landscape-play .shift-score strong { font-size: 13px; min-width: 62px; }
+  .landscape-play .mobile-recipe { left: 10px; max-width: calc(100% - 145px); }
+  .landscape-play .mobile-recipe .recipe-part > img, .landscape-play .unknown-fruit { display: none; }
+  .landscape-play .kitchen-feedback { max-width: calc(100% - 265px); }
+}
+
+.bento-packing-modal { width: min(100%, 860px); display: grid; grid-template-columns: minmax(0, 1fr) 190px; gap: 20px; padding: 28px; align-items: center; }
+.bento-heading { grid-column: 1 / -1; margin: 0 24px; }
+.bento-heading .modal-eyebrow { margin: 0 0 6px; }
+.bento-heading h2 { font-size: 20px; }
+#bento-packing { display: block; width: 100%; height: auto; aspect-ratio: 3 / 2; border-radius: 4px; }
+.bento-tools { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.bento-pieces { display: grid; gap: 8px; }
+.bento-piece { display: grid; grid-template-columns: 76px minmax(0, 1fr); align-items: center; width: 100%; min-height: 62px; padding: 0 8px 0 0; background: #f0f3ed; border: 1px solid #dae2d7; border-radius: 6px; color: #788679; touch-action: none; cursor: grab; }
+.bento-piece.current { background: #fff4ef; border-color: #c68c9a; color: #805e6b; }
+.bento-piece:hover:not(:disabled) { border-color: #b07888; }
+.bento-piece:active { cursor: grabbing; }
+.bento-piece > canvas { display: block; width: 76px; height: auto; pointer-events: none; }
+.bento-piece-label { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 4px; font-size: 12px; line-height: 1.6; }
+.bento-piece-label > span { width: 100%; font-size: 10px; color: #9a8b86; }
+.bento-piece-label > svg { display: none; width: 14px; height: 14px; }
+.bento-piece.done { cursor: default; opacity: .65; }
+.bento-piece.done .bento-piece-label > svg { display: block; color: #668c73; }
+.bento-status { min-height: 48px; margin: 0; font-size: 12px; line-height: 1.8; color: #718575; overflow-wrap: anywhere; }
+.bento-take { width: 100%; min-width: 0; padding: 12px 8px; font-size: 12px; }
+.bento-take:disabled { opacity: .4; cursor: default; transform: none; }
+.bento-drag-piece { position: fixed; width: 110px; height: auto; transform: translate(-50%, -50%); pointer-events: none; z-index: 5; filter: drop-shadow(0 5px 5px #405c5a40); }
+@media (max-width: 500px) and (orientation: portrait) {
+  .bento-packing-modal { grid-template-columns: minmax(0, 1fr); padding: 20px; gap: 12px; }
+  .bento-heading { margin: 0 18px; }
+  .bento-pieces { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .bento-piece { grid-template-columns: minmax(0, 1fr); padding: 4px; }
+  .bento-piece > canvas { margin: auto; }
+  .bento-piece-label > span { width: auto; }
+  .bento-status { min-height: 40px; }
+}
+@media (orientation: landscape) and (max-height: 600px) {
+  .landscape-play .bento-packing-modal { width: min(100%, 800px); grid-template-columns: minmax(0, 1fr) 162px; gap: 10px 16px; padding: 16px; }
+  .bento-heading { margin: 0 24px; }
+  .bento-heading .modal-eyebrow { display: none; }
+  .landscape-play .bento-heading h2 { font-size: 17px; }
+  #bento-packing { justify-self: center; width: min(100%, calc((100dvh - 100px) * 1.5)); }
+  .bento-tools { gap: 8px; }
+  .bento-pieces { gap: 6px; }
+  .bento-piece { grid-template-columns: 64px minmax(0, 1fr); min-height: 50px; padding-right: 6px; }
+  .bento-piece > canvas { width: 64px; }
+  .bento-piece-label { font-size: 11px; line-height: 1.4; gap: 2px; }
+  .bento-piece-label > span { font-size: 9px; }
+  .bento-status { min-height: 34px; font-size: 10px; line-height: 1.6; }
+  .bento-take { min-height: 38px; padding: 8px 6px; font-size: 11px; }
+  .bento-take svg { width: 16px; height: 16px; }
+}
+@media (orientation: landscape) and (max-height: 360px) {
+  .landscape-play .bento-packing-modal { grid-template-columns: minmax(0, 1fr) 150px; gap: 8px 12px; padding: 14px; }
+  .bento-piece { min-height: 44px; grid-template-columns: 58px minmax(0, 1fr); }
+  .bento-piece > canvas { width: 58px; }
+  .bento-tools { gap: 6px; }
+  .bento-piece-label { font-size: 10px; }
+}
+
+.memory-camera-modal { width: min(100%, 780px); padding: 28px; }
+.memory-camera-heading { margin: 0 20px 18px; }
+.memory-camera-heading .modal-eyebrow { margin: 0 0 6px; }
+.memory-camera-heading h2 { font-size: 20px; }
+.memory-viewfinder { position: relative; aspect-ratio: 3 / 2; background: #dce7df; overflow: hidden; border-radius: 4px; }
+#memory-camera { display: block; width: 100%; height: 100%; touch-action: none; cursor: grab; }
+#memory-camera:active { cursor: grabbing; }
+.memory-frame { position: absolute; inset: 7%; border: 1px solid #ffffffb0; pointer-events: none; }
+.memory-focus-mark { position: absolute; top: calc(50% - 23px); left: calc(50% - 23px); width: 46px; height: 46px; border: 2px solid #fff; pointer-events: none; }
+[data-ready="true"] .memory-focus-mark { border-color: #58896d; }
+.memory-live { position: absolute; top: 12px; left: 14px; color: #355b58; font-size: 11px; pointer-events: none; }
+.memory-camera-tools { display: grid; grid-template-columns: 118px minmax(0, 1fr) 60px; gap: 12px 20px; align-items: center; padding-top: 16px; }
+.memory-direction-pad { display: grid; grid-template: repeat(3, 32px) / repeat(3, 36px); justify-content: center; }
+.memory-direction-pad .icon-button { width: 36px; height: 32px; border: 1px solid #dbe2d8; background: #f1f4ee; }
+.memory-direction-pad svg { width: 18px; height: 18px; }
+.memory-up { grid-area: 1 / 2; }.memory-left { grid-area: 2 / 1; }.memory-center { grid-area: 2 / 2; }.memory-right { grid-area: 2 / 3; }.memory-down { grid-area: 3 / 2; }
+.memory-focus-control { display: grid; grid-template-columns: 20px 1fr; gap: 8px; align-items: center; text-align: left; font-size: 12px; color: #627d71; min-width: 0; }
+.memory-focus-control svg { width: 18px; height: 18px; }
+.memory-focus-control input { grid-column: 1 / -1; width: 100%; min-width: 0; height: 32px; accent-color: #719c86; margin: 0; }
+.memory-shutter { width: 60px; height: 60px; display: grid; place-items: center; border: 5px solid #f1d9d5; border-radius: 50%; background: #ce7e76; color: #fff; box-shadow: 0 0 0 1px #c3847c; }
+.memory-shutter:hover { background: #b96c66; }
+.memory-shutter svg { width: 26px; height: 26px; }
+.memory-camera-status { grid-column: 1 / -1; display: flex; flex-wrap: wrap; justify-content: center; gap: 5px 18px; min-height: 20px; font-size: 11px; line-height: 1.7; color: #9b7b67; }
+[data-ready="true"] .memory-camera-status { color: #62856a; }
+.memory-print { margin: 20px auto; padding: 10px 10px 0; background: #fff; max-width: 350px; box-shadow: 0 3px 14px #3659521f; }
+.memory-print img { display: block; width: 100%; aspect-ratio: 3 / 2; object-fit: cover; }
+.memory-print.developing img { animation: memory-develop 1.4s ease both; }
+@keyframes memory-develop {
+  from { filter: contrast(.1) brightness(1.7) saturate(.2); opacity: .25; }
+  to { filter: none; opacity: 1; }
+}
+.memory-print figcaption { padding: 13px 2px; font-size: 11px; line-height: 1.8; color: #7b8880; overflow-wrap: anywhere; }
+.memory-print-status { font-size: 12px; line-height: 1.8; color: #7d8d7c; min-height: 44px; }
+.memory-print-actions { display: flex; gap: 10px; margin-top: 14px; }
+.memory-print-actions button { flex: 1; min-width: 0; }
+.memory-print-actions button:disabled { opacity: .45; transform: none; cursor: default; }
+@media (prefers-reduced-motion: reduce) {
+  .memory-print.developing img { animation: none; }
+}
+@media (orientation: landscape) and (max-height: 600px) {
+  .landscape-play .memory-camera-modal { width: min(100%, 800px); display: grid; grid-template-columns: minmax(0, 1fr) 160px; gap: 12px 18px; padding: 16px; }
+  .memory-camera-heading { grid-column: 1 / -1; margin: 0 22px; }
+  .memory-camera-heading .modal-eyebrow { display: none; }
+  .landscape-play .memory-camera-heading h2 { font-size: 17px; }
+  .memory-viewfinder { align-self: center; justify-self: center; width: min(100%, calc((100dvh - 108px) * 1.5)); }
+  .memory-camera-tools { grid-template-columns: minmax(0, 1fr) 48px; gap: 8px; padding: 0; }
+  .memory-direction-pad { grid-column: 1 / -1; }
+  .memory-focus-control { grid-column: 1 / -1; }
+  .memory-shutter { width: 46px; height: 46px; grid-column: 1 / -1; justify-self: center; border-width: 4px; }
+  .memory-shutter svg { width: 21px; height: 21px; }
+  .memory-camera-status { flex-direction: column; gap: 0; font-size: 10px; }
+  .memory-live { top: 7px; left: 9px; font-size: 9px; }
+  .landscape-play .memory-print-modal { width: min(100%, 710px); display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 10px 20px; padding: 20px; align-items: center; }
+  .memory-print-modal > .modal-eyebrow { display: none; }
+  .memory-print-modal > h2 { grid-column: 1 / -1; margin-right: 14px; }
+  .landscape-play .memory-print-modal > h2 { font-size: 17px; }
+  .memory-print-modal .memory-print { grid-row: 2 / 4; margin: 0; }
+  .memory-print-modal .memory-print-status { margin: 0; align-self: end; }
+  .memory-print-modal .memory-print-actions { margin: 0; flex-wrap: wrap; align-self: start; }
+  .memory-print-actions button { padding: 9px; min-height: 40px; }
+  .memory-print figcaption { font-size: 10px; padding: 8px 0; }
+}
+@media (orientation: landscape) and (max-height: 360px) {
+  .memory-camera-tools { gap: 6px; }
+  .memory-direction-pad { grid-template: repeat(3, 28px) / repeat(3, 32px); }
+  .memory-direction-pad .icon-button { width: 32px; height: 28px; }
+  .memory-focus-control { gap: 4px; }
+  .memory-focus-control input { height: 24px; }
+  .memory-shutter { width: 42px; height: 42px; }
+  .memory-camera-status { font-size: 9px; line-height: 1.5; }
+}
+
+.mobile-recipe.order-queue {
+  display: flex;
+  align-items: stretch;
+  gap: 6px;
+  height: 35px;
+  padding: 0;
+  margin: 0 0 9px;
+  background: none;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none;
+  overscroll-behavior-x: contain;
+  touch-action: pan-x;
+}
+.order-queue::-webkit-scrollbar { display: none; }
+:is(.rolling-order, .score-fx-ticket) { flex: 0 0 172px; min-width: 0; height: 100%; display: grid; grid-template-rows: 10px 14px 2px; gap: 1px; padding: 3px 6px; border: 1px solid #c6d8cf; border-radius: 4px; background: #fcfefaed; }
+.order-heading { display: flex; justify-content: space-between; gap: 6px; align-items: center; line-height: 1; }
+.order-heading .order-sequence { font-size: 8px; }
+.order-time { color: #4f7566; font-size: 9px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.order-food { display: flex; align-items: center; gap: 5px; min-width: 0; }
+:is(.order-queue, .score-fx-ticket-clip) .order-food .recipe-part { padding: 0; flex: 0 1 auto; min-height: 0; gap: 2px; }
+:is(.order-queue, .score-fx-ticket-clip) .order-food :is(.recipe-part > img, .unknown-fruit) { width: 14px; height: 14px; }
+:is(.order-queue, .score-fx-ticket-clip) .order-food .unknown-fruit svg { width: 12px; height: 12px; }
+:is(.order-queue, .score-fx-ticket-clip) .order-food .recipe-part strong { font-size: 9px; line-height: 1.2; white-space: nowrap; }
+:is(.order-queue, .score-fx-ticket-clip) .recipe-part-check { display: none; }
+:is(.order-queue, .score-fx-ticket-clip) .recipe-part.plated strong::after { content: none; }
+.order-patience { height: 2px; background: #e2e9e1; overflow: hidden; }
+.order-patience > span { display: block; height: 100%; background: #649f80; }
+.rolling-order.urgent { border-color: #ce7a72; background: #fff5f1ed; }
+.rolling-order.urgent .order-time { color: #b74444; }
+.rolling-order.urgent .order-patience > span { background: #c65c59; }
+.rolling-order.order-expiring { animation: order-expiring-pulse 1s ease-in-out infinite; }
+@keyframes order-expiring-pulse { 50% { background: #ffe0d8; border-color: #b95049; } }
+.needs-rotation .order-expiring, .modal-open .order-expiring { animation-play-state: paused; }
+.queue-empty { display: flex; align-items: center; gap: 8px; padding: 0 10px; font-size: 11px; color: #6c8775; background: #fcfefaed; border: 1px solid #c6d8cf; border-radius: 4px; }
+.score-effects { position: fixed; inset: 0; z-index: 10; overflow: hidden; pointer-events: none; }
+.score-fx-ticket-clip { position: absolute; overflow: hidden; }
+.score-fx-ticket { position: absolute; }
+.score-fx-ticket-missed { color: #963b37; border-color: #c76860; background: #ffe1da; }
+.score-fx-ticket-missed .order-time { color: #a33736; }
+.score-fx-ticket-missed::after { content: ''; position: absolute; inset: 49% 4px auto; height: 2px; background: #b23e39; transform: rotate(-5deg); }
+.score-fx-ticket-served { background: #e8f6e8; border-color: #6b9b75; }
+.score-fx-stamp { position: absolute; top: 50%; left: 58%; transform: translate(-50%, -50%) rotate(-11deg); display: grid; place-items: center; width: 23px; height: 20px; border: 2px solid #458458; border-radius: 4px; color: #347849; background: #e9f8e9; font-size: 15px; font-weight: 900; line-height: 1; }
+.score-fx-station { position: absolute; border: 2px solid #ffde87; border-radius: 7px; background: #ffdc7455; box-shadow: 0 0 13px #ffcf62bb; }
+.score-fx-delta, .score-fx-pass { position: absolute; transform: translate(-50%, -50%); white-space: nowrap; line-height: 1; font-weight: 900; }
+.score-fx-delta { font-size: 27px; paint-order: stroke fill; -webkit-text-stroke: 4px #fffcf5; text-shadow: 0 2px 4px #412c2044; }
+.score-fx-win { color: #9b5c0a; }
+.score-fx-loss { color: #b22c38; }
+.score-fx-pass { padding: 5px 8px; border: 1px solid #92b69d; border-radius: 4px; background: #f1f9e9; color: #376b4f; font-size: 13px; }
+.landscape-play .mobile-recipe.order-queue { margin: 0; }
+@media (orientation: landscape) and (max-height: 360px) {
+  .landscape-play .mobile-recipe.order-queue { height: 28px; }
+  :is(.rolling-order, .score-fx-ticket) { grid-template-rows: 9px 11px 2px; gap: 0; padding: 2px 5px; }
+  :is(.order-queue, .score-fx-ticket-clip) .order-food :is(.recipe-part > img, .unknown-fruit) { width: 11px; height: 11px; }
+  :is(.order-queue, .score-fx-ticket-clip) .order-food .recipe-part strong { font-size: 8px; }
+  .score-fx-delta { font-size: 23px; }
+}
+@media (max-width: 620px) {
+  .landscape-play .rolling-order { flex-basis: 152px; }
+  .landscape-play :is(.order-queue, .score-fx-ticket-clip) .order-food :is(.recipe-part > img, .unknown-fruit) { display: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .rolling-order.order-expiring { animation: none; background: #ffe7df; }
+}
+
+/* Keep reward actions outside the independently scrollable letter/message. */
+.modal.reward-modal {
+  width: min(100%, 760px);
+  height: min(540px, calc(100dvh - 48px));
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  gap: 22px;
+  overflow: hidden;
+  padding: 28px;
+}
+.reward-header { min-width: 0; padding: 0 22px; }
+.reward-header .modal-eyebrow { margin: 0 0 10px; }
+.reward-header .modal-subtitle { margin: 7px 0 0; }
+.reward-body { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); gap: 28px; min-height: 0; }
+.reward-scroll { min-width: 0; min-height: 0; overflow-y: auto; overscroll-behavior: contain; scrollbar-gutter: stable; padding: 2px 8px 2px 2px; }
+.reward-scroll:focus-visible { outline: 2px solid #96b4a6; outline-offset: -2px; }
+.reward-scroll .riddle-letter { margin: 0; padding: 16px; font-size: 14px; line-height: 2; }
+.reward-scroll .delivered-photo { margin: 0 auto 12px; }
+.reward-scroll .delivered-photo img { width: 100%; height: auto; }
+.reward-actions { align-self: center; min-width: 0; }
+.reward-actions .text-input { width: 100%; }
+.reward-actions .primary-button, .reward-footer .primary-button { width: 100%; min-width: 0; white-space: normal; }
+.reward-footer .primary-button { margin: 0; }
+.gift-display { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 0; min-width: 0; gap: 8px; }
+.reward-modal .gift-art { width: min(100%, 280px); aspect-ratio: 1; min-height: 0; }
+.reward-modal .gift-photo { width: 100%; height: 100%; }
+.reward-modal .package-number { margin: 0; max-width: 100%; font-size: 11px; }
+.reward-modal .gift-message { margin: 0; font-size: 14px; line-height: 2; text-align: left; }
+.reward-modal .gift-signature { margin-top: 12px; }
+.reward-modal .modal-close { z-index: 2; }
+@media (orientation: landscape) and (max-height: 600px) {
+  .modal.reward-modal { height: min(400px, calc(100dvh - max(10px, env(safe-area-inset-top)) - max(10px, env(safe-area-inset-bottom)))); padding: 18px 22px; gap: 14px; }
+  .reward-header .modal-eyebrow { margin-bottom: 5px; font-size: 9px; }
+  .reward-header .modal-subtitle { margin-top: 3px; }
+  .reward-body { gap: 22px; }
+  .reward-scroll .riddle-letter { padding: 10px 14px; line-height: 1.85; }
+  .reward-actions .guess-label { margin-bottom: 7px; }
+  .reward-actions .primary-button { margin-top: 12px; padding: 10px 8px; min-height: 42px; font-size: 12px; }
+  .reward-actions .modal-footnote { margin-top: 8px; }
+  .reward-modal .gift-art { width: min(100%, 210px); }
+  .reward-footer .primary-button { padding: 10px 8px; min-height: 42px; font-size: 12px; }
+}
+@media (orientation: landscape) and (max-height: 360px) {
+  .modal.reward-modal { padding: 15px 18px; gap: 10px; }
+  .reward-modal .reward-header h2 { font-size: 18px; }
+  .reward-header .modal-eyebrow { font-size: 8px; }
+  .reward-body { gap: 16px; }
+  .reward-scroll .riddle-letter, .reward-modal .gift-message { font-size: 13px; line-height: 1.8; }
+  .reward-actions .text-input { padding: 7px 9px; }
+  .reward-actions .primary-button { margin-top: 8px; }
+}
+@media (orientation: portrait) and (max-width: 600px) {
+  .modal.reward-modal { height: calc(100dvh - 28px); padding: 24px 18px; gap: 16px; }
+  .reward-body { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr) auto; gap: 14px; }
+  .gift-modal .reward-body { grid-template-rows: 120px minmax(0, 1fr); }
+  .gift-display { flex-direction: row; gap: 10px; }
+  .reward-modal .gift-art { width: 110px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .shift-hud.urgent .shift-clock svg { animation: none; }
 }

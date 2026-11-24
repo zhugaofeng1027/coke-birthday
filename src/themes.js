@@ -7,10 +7,10 @@ export const THEMES = [
     floor: ['#eff6e8', '#dbeace'], wall: '#c6e3dc', counter: '#77aaa0', top: '#fff3cc', accent: '#d67d83',
   },
   {
-    name: '口袋便当铺', station: '便当模具', title: '藏在盒盖上的小图案',
-    clue: '盒盖画着一个小山尖。端熟米饭来试模具，每压一次换个形状。便当从左到右是：山尖饭团、烤鸡、绿绿的小树。',
-    kind: 'bento', order: ['rice', 'chicken', 'broccoli'],
-    success: '三角饭团做好啦，配菜也整整齐齐地坐好。',
+    name: '口袋便当铺', station: '便当打包台', title: '给出门的你，带一份惦记',
+    clue: '米饭煮好、鸡肉烤好、西兰花切好，一起装盘端到打包台。盖上盒盖，套好绑带，贴上爱心封签，再从取餐口交给你。',
+    kind: 'bento',
+    success: '便当交到你手里啦。出门也要好好吃饭，今天的惦记一起带上。',
     floor: ['#f7edf0', '#e4dee9'], wall: '#f0c9d2', counter: '#a398be', top: '#fff7e8', accent: '#ce788b',
   },
   {
@@ -21,10 +21,10 @@ export const THEMES = [
     floor: ['#dce4e9', '#cbd7df'], wall: '#425969', counter: '#68999d', top: '#f3e6cd', accent: '#e8ad65',
   },
   {
-    name: '时光食堂', station: '回忆相片', title: '复刻照片里的那一餐',
-    clue: '那天点的是番茄热汤、金黄吐司和切好的蘑菇。照片里从左到右：红色、金色、浅棕色。',
-    kind: 'memory', order: ['tomato', 'bread', 'mushroom'],
-    success: '照片里的那一餐，又在今天重逢了。',
+    name: '时光食堂', station: '回忆相片', title: '为这一餐拍张照',
+    clue: '旧照片里，有番茄热汤、金黄吐司和切好的蘑菇。把这一餐端到双人餐桌，让两套餐具一起入镜，留下一张清晰的新照片。',
+    kind: 'memory',
+    success: '今天的晚餐，也成为了我们的一张回忆。',
     floor: ['#e7f0f1', '#d5e2e5'], wall: '#bbd8de', counter: '#86a7b2', top: '#faf0dc', accent: '#d98279',
   },
   {

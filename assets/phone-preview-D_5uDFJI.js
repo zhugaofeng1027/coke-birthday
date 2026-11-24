@@ -1,0 +1,17 @@
+import{d as w,c as f,D as p,s as v,S as y,A as b}from"./debug-scenes-Bvk6zaBt.js";const g=["svg",w,[["path",{d:"M15 3h6v6"}],["path",{d:"M10 14 21 3"}],["path",{d:"M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"}]]],S={standard:{width:844,height:390},small:{width:740,height:320},compact:{width:568,height:320},tablet:{width:1180,height:820}},o=new URL(window.location.href);o.searchParams.delete("preview");o.searchParams.delete("layout");const r=new URL(o);r.searchParams.set("layout","landscape");const q=r.searchParams.get("kitchen-polish");o.searchParams.delete("score-fx");const k=document.querySelector("#app");k.innerHTML=`
+  <header class="preview-toolbar">
+    <a class="preview-icon" id="preview-back" aria-label="返回电脑试玩" title="返回电脑试玩"><i data-lucide="arrow-left"></i></a>
+    <span class="preview-title"><i data-lucide="smartphone"></i>手机横屏预览</span>
+    
+    <select id="preview-size" aria-label="预览设备尺寸">
+      <option value="standard">手机 · 844 × 390</option>
+      <option value="small">小屏 · 740 × 320</option>
+      <option value="compact">紧凑 · 568 × 320</option>
+      <option value="tablet">平板 · 1180 × 820</option>
+    </select>
+    <output id="preview-scale" aria-label="预览缩放比例"></output>
+    <a class="preview-icon" id="preview-open" target="_blank" rel="noopener" aria-label="独立打开游戏" title="独立打开游戏"><i data-lucide="external-link"></i></a>
+  </header>
+  <main class="preview-workspace">
+    <div class="preview-frame"><iframe title="手机横屏游戏" allow="fullscreen; microphone"></iframe></div>
+  </main>`;document.querySelector("#preview-back").href=o.href;document.querySelector("#preview-open").href=r.href;f({icons:{ArrowLeft:b,Smartphone:y,ExternalLink:g},attrs:{"stroke-width":1.7}});const l=document.querySelector(".preview-workspace"),h=document.querySelector(".preview-frame"),a=h.querySelector("iframe"),u=document.querySelector("#preview-size"),i=document.querySelector("#bento-version");i&&(i.value=q,i.addEventListener("change",()=>{const e=new URL(location.href);for(const t of[e,o,r])t.searchParams.set("kitchen-polish",i.value);history.replaceState(null,"",e.href),document.querySelector("#preview-back").href=o.href,document.querySelector("#preview-open").href=r.href,a.src=r.href}));window.addEventListener("message",e=>{if(e.origin!==location.origin||e.source!==a.contentWindow||e.data?.type!=="birthday-bistro:play-mode"||typeof e.data.debug!="boolean")return;const{debug:t,chapter:s,scene:n}=e.data;if(t&&(!Number.isInteger(s)||s<0||s>=6)||n!=null&&(!t||!Object.hasOwn(p,n)||p[n].chapter!==s))return;const c=new URL(location.href);for(const m of[c,o,r])v(m.searchParams,{debug:t,chapter:s,scene:n});i?.isConnected&&!c.searchParams.has("kitchen-polish")&&(i.remove(),document.querySelector(".preview-toolbar").classList.remove("bento-compare"),document.querySelector(".preview-title").lastChild.textContent="手机横屏预览"),history.replaceState(null,"",c.href),document.querySelector("#preview-back").href=o.href,document.querySelector("#preview-open").href=r.href});function d(){const e=S[u.value],t=Math.min(1,(l.clientWidth-28)/e.width,(l.clientHeight-28)/e.height);h.style.width=`${e.width*t}px`,h.style.height=`${e.height*t}px`,a.style.width=`${e.width}px`,a.style.height=`${e.height}px`,a.style.transform=`scale(${t})`,document.querySelector("#preview-scale").textContent=`${Math.round(t*100)}%`}u.addEventListener("change",()=>{d(),a.focus()});new ResizeObserver(d).observe(l);a.addEventListener("load",()=>a.focus());d();a.src=r.href;

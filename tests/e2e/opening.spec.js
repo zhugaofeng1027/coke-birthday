@@ -19,7 +19,9 @@ async function inViewport(page, selector) {
 
 test('four opening scenes show real artwork and enter the first kitchen without spoilers', async ({ page }, testInfo) => {
   const errors = []; page.on('pageerror', error => errors.push(error.message));
+  const warmup = page.waitForRequest(/\/kitchen-engine(?:-[\w-]+)?\.js(?:\?|$)/);
   await opening(page);
+  await warmup;
   await expect(page.locator('.opening')).toHaveAttribute('data-stage', '0');
   await expect(page.locator('#kitchen-host')).toHaveCount(0);
   await expect(page.locator('[data-action="music"]')).toHaveAttribute('aria-pressed', 'false');

@@ -262,7 +262,6 @@ function render() {
       mode: state.opening, chapter: state.chapter, icon, icons,
       onCue: beat => {
         if (!state.muted) playNote([392, 523.25, 659.25, 523.25][beat], .45, .025);
-        if (beat === 1) void loadKitchenEngine().catch(() => {});
       },
       onEnter: () => {
         if (!state.debug) {
@@ -274,6 +273,10 @@ function render() {
         render();
       },
     });
+    // Let the opening paint once before warming the kitchen module.
+    requestAnimationFrame(() => setTimeout(() => {
+      if (state.opening) void loadKitchenEngine().catch(() => {});
+    }, 0));
     syncMusic();
     return;
   }
@@ -1301,6 +1304,7 @@ document.addEventListener('submit', (event) => {
 });
 
 try {
+  if (!state.opening && !state.ending) void loadKitchenEngine().catch(() => {});
   const response = await fetch(`${import.meta.env.BASE_URL}config.json`);
   if (!response.ok) throw new Error('配置加载失败');
   baseConfig = await response.json(); config = normalizeConfig(read(CONFIG_KEY), baseConfig); render();

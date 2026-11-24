@@ -361,6 +361,9 @@ textarea { display: block; resize: vertical; min-height: 70px; }
   100% { transform: translate(21px, -28px) rotate(34deg) scale(1.9, 1.15); opacity: 0; visibility: hidden; }
 }
 .candle-status, .wish-sent { margin: 0 0 6px; color: #596650; font-size: 12px; line-height: 1.5; }
+.candle-mic-level { width: 76px; height: 3px; margin: -3px auto 4px; background: #dbe0cd; visibility: hidden; }
+.candle-status:is([data-state='calibrating'], [data-state='listening'], [data-state='no-signal']) + .candle-mic-level { visibility: visible; }
+.candle-mic-level::before { content: ''; display: block; height: 100%; background: #4c7c65; transform: scaleX(var(--mic-level, 0)); transform-origin: left; }
 .candle-footer { display: grid; }
 .candle-footer > * { grid-area: 1 / 1; }
 .candle-controls.spent { visibility: hidden; }

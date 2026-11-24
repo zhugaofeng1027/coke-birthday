@@ -1,24 +1,32 @@
+const MIN_BLOW_RMS = .0035;
+
 export function measureBlow(samples, spectrum, sampleRate) {
   let sum = 0; let energy = 0;
   for (const sample of samples) { sum += sample; energy += sample * sample; }
-  const rms = Math.sqrt(Math.max(0, energy / samples.length - (sum / samples.length) ** 2));
-  if (rms < .009) return { rms, windy: false };
+  const mean = sum / samples.length;
+  const rms = Math.sqrt(Math.max(0, energy / samples.length - mean ** 2));
+  if (rms < MIN_BLOW_RMS) return { rms, windy: false };
 
   const binHz = sampleRate / (2 * spectrum.length);
   let power = 0; let lowPower = 0; let peak = 0;
-  for (let i = Math.ceil(45 / binHz); i < spectrum.length && i * binHz <= 4200; i++) {
+  const bands = [0, 0, 0, 0];
+  for (let i = Math.ceil(45 / binHz); i < spectrum.length && i * binHz <= 5200; i++) {
+    const hz = i * binHz;
     const binPower = 10 ** (spectrum[i] / 10);
     power += binPower;
-    if (i * binHz <= 850) lowPower += binPower;
+    if (hz <= 850) lowPower += binPower;
+    bands[hz < 500 ? 0 : hz < 1100 ? 1 : hz < 2300 ? 2 : 3] += binPower;
     peak = Math.max(peak, binPower);
   }
-  if (!power || lowPower / power < .38 || peak / power > .24) return { rms, windy: false };
+  // Phone microphones may cut the bass, but a gust still spans multiple bands.
+  const broadband = bands.filter(band => band >= .04 * power).length >= 3;
+  if (!power || peak / power > .24 || (lowPower / power < .38 && !broadband)) return { rms, windy: false };
 
   // A voice can have plenty of bass, but its waveform repeats at the pitch period.
   for (let lag = Math.floor(sampleRate / 420); lag <= sampleRate / 80; lag += 3) {
     let overlap = 0; let left = 0; let right = 0;
     for (let i = 0; i + lag < samples.length; i += 4) {
-      const a = samples[i]; const b = samples[i + lag];
+      const a = samples[i] - mean; const b = samples[i + lag] - mean;
       overlap += a * b; left += a * a; right += b * b;
     }
     if (overlap > .72 * Math.sqrt(left * right)) return { rms, windy: false };
@@ -28,26 +36,27 @@ export function measureBlow(samples, spectrum, sampleRate) {
 
 export function createBlowDetector() {
   const roomNoise = [];
-  let elapsed = 0; let gust = 0; let threshold = .009;
+  let elapsed = 0; let gust = 0; let threshold = MIN_BLOW_RMS;
   return (frame, dt) => {
-    const step = Math.min(55, Math.max(0, dt));
+    const step = Math.min(65, Math.max(0, dt));
     if (elapsed < 600) {
       roomNoise.push(frame.rms);
       elapsed += step;
       if (elapsed >= 600) {
         roomNoise.sort((a, b) => a - b);
-        threshold = Math.max(.009, roomNoise[Math.floor(roomNoise.length / 2)] * 2.5 + .004);
+        const baseline = roomNoise[Math.floor(roomNoise.length * .35)];
+        threshold = Math.max(MIN_BLOW_RMS, baseline * 1.85 + .0015);
       }
       return { calibrating: true, wind: 0, blown: false };
     }
-    if (dt > 105) gust = 0;
+    if (dt > 180) gust = 0;
     const strong = frame.windy && frame.rms >= threshold;
-    gust = Math.max(0, gust + (strong ? step : -step * 2.5));
+    gust = Math.max(0, gust + (strong ? step : -step * 1.5));
     return { calibrating: false, wind: Math.min(1, gust / 285), blown: gust >= 340 };
   };
 }
 
-export function createCandleMic({ onState, onWind, onBlow }) {
+export function createCandleMic({ onState, onWind, onLevel, onBlow }) {
   const Audio = window.AudioContext || window.webkitAudioContext;
   let session = null;
 
@@ -60,6 +69,7 @@ export function createCandleMic({ onState, onWind, onBlow }) {
     current.stream?.getTracks().forEach(track => track.stop());
     void current.audio?.close().catch(() => {});
     onWind(0);
+    onLevel(0);
     onState(status);
   }
 
@@ -79,7 +89,7 @@ export function createCandleMic({ onState, onWind, onBlow }) {
       });
       if (session !== current) { stream.getTracks().forEach(track => track.stop()); return; }
       current.stream = stream;
-      current.timer = setTimeout(() => stop('timeout'), 22000);
+      current.timer = setTimeout(() => stop(audio.state === 'running' ? 'timeout' : 'unavailable'), 22000);
       stream.getAudioTracks().forEach(track => track.addEventListener('ended', () => {
         if (session === current) stop('unavailable');
       }, { once: true }));
@@ -95,16 +105,21 @@ export function createCandleMic({ onState, onWind, onBlow }) {
       const spectrum = new Float32Array(analyser.frequencyBinCount);
       const detect = createBlowDetector();
       let previous = performance.now();
-      let listening = false;
-      onState('calibrating');
+      let phase = 'calibrating';
+      let silentSince = previous;
+      onState(phase);
       const tick = (now) => {
         const dt = now - previous;
         if (dt >= 30) {
           previous = now;
           analyser.getFloatTimeDomainData(samples);
           analyser.getFloatFrequencyData(spectrum);
-          const result = detect(measureBlow(samples, spectrum, audio.sampleRate), dt);
-          if (!result.calibrating && !listening) { listening = true; onState('listening'); }
+          const frame = measureBlow(samples, spectrum, audio.sampleRate);
+          const result = detect(frame, dt);
+          if (frame.rms >= .00045) silentSince = now;
+          const next = result.calibrating ? 'calibrating' : now - silentSince >= 2400 ? 'no-signal' : 'listening';
+          if (next !== phase) { phase = next; onState(phase); }
+          onLevel(Math.min(1, Math.max(0, (frame.rms - .00045) / (MIN_BLOW_RMS * 2))));
           onWind(result.wind);
           if (result.blown) { stop(); onBlow(); return; }
         }

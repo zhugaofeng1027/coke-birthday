@@ -39,33 +39,36 @@ test('candle flames flicker, fit the landscape phone and snuff out with smoke', 
   expect(await page.evaluate(key => localStorage.getItem(key), KEY)).toBeNull();
 });
 
-function writeBlowFixture(path) {
+function writeBlowFixture(path, quiet) {
   const rate = 48000;
-  const wav = Buffer.alloc(44 + 5 * rate * 2);
+  const duration = quiet ? 7 : 5;
+  const wav = Buffer.alloc(44 + duration * rate * 2);
   wav.write('RIFF'); wav.writeUInt32LE(wav.length - 8, 4);
   wav.write('WAVEfmt ', 8); wav.writeUInt32LE(16, 16); wav.writeUInt16LE(1, 20); wav.writeUInt16LE(1, 22);
   wav.writeUInt32LE(rate, 24); wav.writeUInt32LE(rate * 2, 28);
   wav.writeUInt16LE(2, 32); wav.writeUInt16LE(16, 34);
   wav.write('data', 36); wav.writeUInt32LE(wav.length - 44, 40);
-  let seed = 7243; let low = 0;
-  for (let i = 0; i < 5 * rate; i++) {
+  let seed = 7243; let low = 0; let air = 0;
+  for (let i = 0; i < duration * rate; i++) {
     seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0;
-    low += .085 * (seed / 2147483648 - 1 - low);
+    const noise = seed / 2147483648 - 1;
+    low += (quiet ? .16 : .085) * (noise - low);
+    air += .37 * (noise - air);
     const t = i / rate;
-    const gust = (t >= 1.4 && t < 1.52) || (t >= 2.4 && t < 3.4);
-    const sample = gust ? low * .88 : low * .009;
+    const gust = (t >= 1.4 && t < 1.52) || (quiet ? t >= 4.5 && t < 5.7 : t >= 2.4 && t < 3.4);
+    const sample = quiet ? (gust ? (air - low) * .036 : 0) : low * (gust ? .88 : .009);
     wav.writeInt16LE(Math.round(sample * 32767), 44 + 2 * i);
   }
   writeFileSync(path, wav);
 }
 
-test('candle microphone hears a sustained gust, saves and releases the mic', async ({}, info) => {
+for (const quiet of [false, true]) test(`candle microphone hears a ${quiet ? 'quiet, bass-cut' : 'strong'} gust, saves and releases the mic`, async ({}, info) => {
   test.skip(info.project.name !== 'compact-phone', 'One browser with controlled microphone input.');
   const dir = mkdtempSync(join(tmpdir(), 'birthday-candles-'));
   let browser;
   try {
     const audio = join(dir, 'gust.wav');
-    writeBlowFixture(audio);
+    writeBlowFixture(audio, quiet);
     browser = await chromium.launch({ args: [
       '--use-fake-ui-for-media-stream', '--use-fake-device-for-media-stream', `--use-file-for-fake-audio-capture=${audio}`,
     ] });
@@ -91,9 +94,17 @@ test('candle microphone hears a sustained gust, saves and releases the mic', asy
     }, KEY);
     await page.goto('/');
     await page.locator(micButton).click();
-    await expect(page.locator('.candle-status')).toHaveAttribute('data-state', 'listening');
+    const status = page.locator('.candle-status');
+    await expect(status).toHaveAttribute('data-state', 'listening');
     const scene = page.locator('.cake-scene');
     await expect(scene).not.toHaveClass(/candles-out/);
+    if (quiet) {
+      const meter = page.locator('.candle-mic-level');
+      await expect(meter).toBeVisible();
+      await expect.poll(() => meter.evaluate(el => Number(el.style.getPropertyValue('--mic-level'))), { intervals: [30] }).toBeGreaterThan(.1);
+      await expect(status).toHaveAttribute('data-state', 'no-signal');
+      await expect(scene).not.toHaveClass(/candles-out/);
+    }
     await expect(scene).toHaveClass(/just-blown/, { timeout: 6000 });
     expect(await page.evaluate(() => window.micOpenTime)).toBeGreaterThan(2000);
     expect(await page.evaluate(() => window.releasedTrack?.readyState)).toBe('ended');

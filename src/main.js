@@ -816,6 +816,7 @@ function endingHTML() {
         </div>
         <div class="candle-footer">${state.candlesOut ? '' : `<div class="candle-controls">
           <p class="candle-status" role="status">许好愿，再吹灭蜡烛。</p>
+          <div class="candle-mic-level" aria-hidden="true"></div>
           <div class="candle-buttons"><button class="primary-button" data-action="wish-mic" aria-pressed="false" ${state.birthdayTransformed ? '' : 'disabled'}>${icon('mic')}用气息吹</button><button class="secondary-button" data-action="wish" ${state.birthdayTransformed ? '' : 'disabled'}>${icon('wind')}点按吹灭</button></div>
         </div>`}
         <p class="wish-sent" role="status" ${state.candlesOut ? '' : 'hidden'}>${state.candlesOut ? '愿你的愿望，都慢慢实现。' : ''}</p></div>
@@ -832,7 +833,8 @@ const CANDLE_MESSAGES = {
   idle: '许好愿，再吹灭蜡烛。',
   requesting: '请允许麦克风权限。',
   calibrating: '先安静一下，马上就可以吹。',
-  listening: '对着手机麦克风吹一口气。',
+  listening: '对准手机底部麦克风，持续吹一口气。',
+  'no-signal': '还没收到声音，靠近手机麦克风试试。',
   denied: '麦克风没开启，也可以点按吹灭。',
   insecure: '真实吹气需要 HTTPS，可点按吹灭。',
   unavailable: '麦克风暂不可用，可点按吹灭。',
@@ -845,10 +847,11 @@ function startCandleScene() {
   const button = document.querySelector('[data-action="wish-mic"]');
   if (!button) return;
   const status = document.querySelector('.candle-status');
+  const meter = document.querySelector('.candle-mic-level');
   const cake = document.querySelector('.cake-scene');
   candleMic = createCandleMic({
     onState(phase) {
-      const active = ['requesting', 'calibrating', 'listening'].includes(phase);
+      const active = ['requesting', 'calibrating', 'listening', 'no-signal'].includes(phase);
       candleListening = active;
       status.textContent = CANDLE_MESSAGES[phase];
       status.dataset.state = phase;
@@ -858,6 +861,7 @@ function startCandleScene() {
       syncMusic();
     },
     onWind(wind) { cake.style.setProperty('--wind', wind.toFixed(2)); },
+    onLevel(level) { meter.style.setProperty('--mic-level', level.toFixed(2)); },
     onBlow: blowOutCandles,
   });
 }

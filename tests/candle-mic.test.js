@@ -22,3 +22,26 @@ test('a periodic voice-like signal is not treated as wind', () => {
   assert.equal(measureBlow(hum, spectrum, rate).windy, false);
   assert.equal(measureBlow(new Float32Array(2048).fill(.1), spectrum, rate).windy, false);
 });
+
+test('quiet, bass-cut wind passes but narrowband noise does not', () => {
+  let seed = 7243;
+  const samples = Float32Array.from({ length: 2048 }, () => {
+    seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0;
+    return .011 * (seed / 2147483648 - 1);
+  });
+  const spectrum = new Float32Array(1024).fill(-110);
+  spectrum.fill(-49, 32, 200);
+  const wind = measureBlow(samples, spectrum, 48000);
+  assert.ok(wind.rms >= .0035 && wind.rms < .009);
+  assert.equal(wind.windy, true);
+  spectrum[90] = -10;
+  assert.equal(measureBlow(samples, spectrum, 48000).windy, false);
+});
+
+test('a quiet gust can build through an uneven frame cadence after noisy calibration', () => {
+  const detect = createBlowDetector();
+  for (let i = 0; i < 20; i++) detect({ rms: i < 9 ? .001 : .02, windy: false }, 30);
+  const gust = { rms: .007, windy: true };
+  for (const dt of [32, 32, 32, 120, 32, 32, 32, 32, 32]) assert.equal(detect(gust, dt).blown, false);
+  assert.equal(detect(gust, 32).blown, true);
+});

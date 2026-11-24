@@ -1,5 +1,5 @@
 import { art, drawChef, drawRound as round, drawEllipse as ellipse, drawLine as line, drawHeart as heart } from './art.js';
-import { stationsFor, DISHES, INGREDIENTS, CHOP_SECONDS, WORLD, worldFor, nearestStation, isHeartJam } from './cooking.js';
+import { stationsFor, DISHES, INGREDIENTS, CHOP_SECONDS, WORLD, worldFor, nearestStation, isHeartJam, brothFor } from './cooking.js';
 import { THEMES, SPICES } from './themes.js';
 import { paintMemoryTable } from './memory-photo.js';
 import { paintBento } from './bento-art.js';
@@ -218,7 +218,7 @@ function station(c, s, k, time, selected, chopping, polish) {
     }
     if (k.board.item && !k.board.item.cut && INGREDIENTS[k.board.item.id].cut) meter(c, x + 12, y - 20, w - 24, k.board.progress / CHOP_SECONDS);
   } else if (s.type === 'pot') {
-    const job = k.pot;
+    const job = k[s.id];
     round(c, x + 17, y + 14, w - 34, 54, 5, '#70877b');
     ellipse(c, cx, y + 56, 42, 13, '#4f675b');
     if (job.item && !job.ready && !job.waiting) {
@@ -227,7 +227,7 @@ function station(c, s, k, time, selected, chopping, polish) {
     round(c, cx - 39, y + 22, 78, 35, 9, '#b98073');
     ellipse(c, cx, y + 24, 40, 13, '#e2a899'); ellipse(c, cx, y + 22, 32, 9, job.item?.id === 'jam' && job.ready ? isHeartJam(job.item) ? '#bb658b' : '#9ca96c' : job.item ? '#e6ba7e' : '#c18b7b');
     round(c, cx - 50, y + 32, 13, 10, 4, '#986d62'); round(c, cx + 37, y + 32, 13, 10, 4, '#986d62');
-    if (k.chapter === 2 && k.broth.length) {
+    if (k.chapter === 2 && brothFor(k, s.id).length) {
       ellipse(c, cx, y + 22, 31, 8, '#a77850');
       spice(c, 'anise', cx + 13, y + 20, 15);
     }
@@ -242,7 +242,7 @@ function station(c, s, k, time, selected, chopping, polish) {
       cookingTimer(c, job, x, y, w);
     }
   } else if (s.type === 'oven') {
-    const job = k.oven;
+    const job = k[s.id];
     if (polish) animatedOven(c, s, job, polish.action, polish.reduced);
     else {
       round(c, x + 13, y + 16, w - 26, 62, 5, '#657d74'); round(c, x + 20, y + 24, w - 40, 45, 4, job.item ? '#dcab70' : '#a3b8ad');
@@ -253,7 +253,8 @@ function station(c, s, k, time, selected, chopping, polish) {
   } else if (s.type === 'plates') {
     for (let i = 0; i < 3; i++) plate(c, null, cx, y + 53 - i * 10, 79);
   } else if (s.type === 'plating') {
-    if (k.plating) plate(c, k.plating, cx, y + 27, 93);
+    if (k[s.id]?.type === 'bento') paintBento(c, 3, cx, y + 27, 66);
+    else if (k[s.id]) plate(c, k[s.id], cx, y + 27, 93);
     else { c.strokeStyle = '#c1b596'; c.lineWidth = 2; c.setLineDash([5, 5]); c.beginPath(); c.ellipse(cx, y + 26, 47, 21, 0, 0, Math.PI * 2); c.stroke(); c.setLineDash([]); }
   } else if (s.type === 'spice') {
     round(c, x + 8, y + 17, w - 16, 30, 4, '#f1dfbd', '#bdac8a');
@@ -261,7 +262,7 @@ function station(c, s, k, time, selected, chopping, polish) {
     spice(c, s.spice, cx, y + 32, 25);
   } else if (s.type === 'photo-table') {
     c.save(); c.translate(cx, y + 26); c.scale(.11, .085);
-    paintMemoryTable(c, !!k.photo.meal); c.restore();
+    paintMemoryTable(c, !!k.photo.meal, k.photo.meal?.contents.some(item => item.id === 'carrot')); c.restore();
     if (k.photo.meal) label(c, k.delivered ? '回忆已留下' : '拍一张合照', cx, y - 9, '#65848b', 16);
   } else if (s.type === 'serve') {
     round(c, x + 19, y + 14, w - 38, 30, 3, '#fff5de');
@@ -304,7 +305,7 @@ function station(c, s, k, time, selected, chopping, polish) {
       label(c, '♡ + ●●', cx, y + 39, '#c5778d', 18);
       line(c, [[x + 28, y + 51], [x + 70, y + 51]], '#a5b895', 3);
     } else if (k.chapter === 1) {
-      paintBento(c, k.packing.step, cx, y + 35, 74, !!k.packing.meal || k.packing.step > 0);
+      paintBento(c, k.packing.step, cx, y + 35, 74, !!k.packing.meal || k.packing.step > 0, k.packing.meal?.contents.some(item => item.id === 'carrot'));
       if (k.packing.meal) label(c, `${k.packing.step} / 3`, cx, y - 10, '#826c8e', 15);
     } else if (k.chapter === 2) {
       food(c, { type: 'spicebag', spices: k.spices }, cx, y + 33, 70);

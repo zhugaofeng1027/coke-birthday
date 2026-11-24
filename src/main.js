@@ -11,7 +11,7 @@ import {
 import { CHAPTERS, normalizeConfig, normalizeProgress, newFlowerRoom, advanceFlowerRoom } from './game.js';
 import { art, CHEF_SPRITES } from './art.js';
 import { createScoreEffects } from './score-effects.js';
-import { DISHES, INGREDIENTS, CHOP_SECONDS, ORDER_POINTS, ORDER_PENALTY, CHALLENGES, createKitchen, actionLabel, itemName, canChop, nearestStation, plateProgress, nextTask, kitchenClue, solveKitchenPuzzle, adjustMemoryCamera, memoryPhotoQuality, captureMemoryPhoto, retakeMemoryPhoto, keepMemoryPhoto, PACKING_STEPS, packBento, takePackedBento } from './cooking.js';
+import { DISHES, INGREDIENTS, CHOP_SECONDS, ORDER_POINTS, ORDER_PENALTY, CHALLENGES, APPLIANCES, orderRecipe, finaleOrder, createKitchen, actionLabel, itemName, canChop, nearestStation, plateProgress, nextTask, kitchenClue, solveKitchenPuzzle, adjustMemoryCamera, memoryPhotoQuality, captureMemoryPhoto, retakeMemoryPhoto, keepMemoryPhoto, PACKING_STEPS, packBento, takePackedBento } from './cooking.js';
 import { paintMemoryPhoto } from './memory-photo.js';
 import { paintPackingTable, paintPackingPiece } from './bento-art.js';
 import { createBentoSample } from './bento-polish.js';
@@ -79,6 +79,7 @@ const state = {
   }),
 };
 let kitchenController = null;
+let orderResize;
 let startCooking;
 let kitchenEngineLoad;
 let scoreEffects = null;
@@ -248,6 +249,7 @@ function render() {
   clearTimeout(candleFinishTimer);
   candleMic?.stop(); candleMic = null;
   kitchenController?.destroy(); kitchenController = null;
+  orderResize?.disconnect(); orderResize = null;
   scoreEffects?.destroy(); scoreEffects = null;
   if (pendingBirthdayNote?.kitchen !== state.kitchen) pendingBirthdayNote = null;
   syncDebugURL();
@@ -329,7 +331,14 @@ function render() {
         </aside>
         <section class="game-column" aria-label="实时厨房游戏">
           <div class="scene-heading"><div><span class="chapter-tag">0${state.chapter + 1} · ${THEMES[state.chapter].name}</span><h2>${DISHES[state.chapter].name}</h2></div><button class="text-button" data-action="confirm-retry" aria-label="重新制作这道菜">${icon('rotate-ccw')}重新做</button></div>
-          <div class="mobile-recipe order-queue" role="region" aria-label="滚动订单队列" tabindex="0"></div>
+          <div class="order-strip">
+            <div class="order-queue" role="region" aria-label="滚动订单队列" tabindex="0"></div>
+            <div class="order-pagination" hidden>
+              <button type="button" data-action="order-page" data-index="-1" aria-label="上一页订单" title="上一页订单">${icon('chevron-left')}</button>
+              <span class="order-page-count"></span>
+              <button type="button" data-action="order-page" data-index="1" aria-label="下一页订单" title="下一页订单">${icon('chevron-right')}</button>
+            </div>
+          </div>
           <div class="kitchen-scene" id="kitchen-host">${startCooking ? '' : '<div class="kitchen-loading" role="status">厨房准备中…</div>'}</div>
           <div class="kitchen-feedback" id="kitchen-feedback" role="status" aria-live="polite">${esc(state.kitchen.message)}</div>
           ${controlsHTML()}
@@ -338,7 +347,7 @@ function render() {
         <aside class="order-column">
           <section class="order-ticket">
             <div class="ticket-top"><span>一份专属订单</span>${icon('notebook-pen')}</div>
-            <div class="ticket-number">ORDER <strong>#00${state.chapter + 1}</strong></div>
+            <div class="ticket-number">ORDER <strong>#001</strong></div>
             <h3>${DISHES[state.chapter].name}</h3><p class="order-subtitle">${DISHES[state.chapter].subtitle}</p>
             <div class="ticket-rule"></div>
             <div class="recipe-label">${icon('utensils')} 订单内容 · 每单 ${ORDER_POINTS} 分</div>
@@ -346,8 +355,10 @@ function render() {
             <div class="cooking-recipe">${recipePartsHTML()}</div>
             <div class="theme-clue"><strong>${THEMES[state.chapter].title}</strong><p>${kitchenClue(state.kitchen)}</p><span class="theme-progress"></span></div>
             <div class="ticket-rule"></div>
-            <div class="appliance-status" data-appliance="pot"><span>${icon('cooking-pot')}煮锅</span><strong>空闲</strong><div role="progressbar" aria-label="煮锅进度" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><span></span></div></div>
-            <div class="appliance-status" data-appliance="oven"><span>${icon('flame')}烤箱</span><strong>空闲</strong><div role="progressbar" aria-label="烤箱进度" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><span></span></div></div>
+            ${APPLIANCES.map(([method, second]) => [method, second].map((id, i) => {
+              const name = `${method === 'pot' ? '煮锅' : '烤箱'} ${i + 1}`;
+              return `<div class="appliance-status" data-appliance="${id}"><span>${icon(method === 'pot' ? 'cooking-pot' : 'flame')}${name}</span><strong>空闲</strong><div role="progressbar" aria-label="${name}进度" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><span></span></div></div>`;
+            }).join('')).join('')}
             <div class="ticket-footer cooking-ticket-footer"><span>${icon('heart')} 好吃的，值得慢慢等</span><span class="plated-count">0 / ${DISHES[state.chapter].parts.length}</span></div>
           </section>
           <section class="helper-area"><div class="helper-heading"><span class="helper-avatar">${icon('chef-hat')}</span><div><strong>${esc(config.sender)}</strong><span>随时待命的副厨</span></div><span class="online-dot"></span></div>
@@ -372,6 +383,14 @@ function render() {
   icons();
   if (!state.ending) {
     scoreEffects = createScoreEffects(app);
+    const strip = app.querySelector('.order-strip');
+    orderResize = new ResizeObserver(() => layoutOrderPage(strip));
+    orderResize.observe(strip);
+    strip.querySelector('.order-queue').addEventListener('keydown', event => {
+      if (!['ArrowLeft', 'ArrowRight'].includes(event.key)) return;
+      event.preventDefault();
+      layoutOrderPage(strip, event.key === 'ArrowLeft' ? -1 : 1);
+    });
     mountKitchen();
   }
   syncPlayMode();
@@ -453,11 +472,30 @@ function handleKitchenUpdate(k, change) {
   updateCookingUI(k);
 }
 
-function recipePartsHTML() {
+function recipePartsHTML(order = state.kitchen.orders[0]) {
   const hidden = state.chapter === 0 && !state.kitchen.puzzle.solved;
-  return DISHES[state.chapter].parts.map((part, index) => part.id === 'jam'
+  return orderRecipe(state.chapter, order).parts.map((part, index) => part.id === 'jam'
     ? `<div class="recipe-part" data-part="${index}">${hidden ? `<span class="unknown-fruit">${icon('cherry')}</span>` : image('jam')}<span><strong>${hidden ? '神秘双果酱' : '爱心双果酱'}</strong></span><span class="recipe-part-check">${icon('check')}</span></div>`
     : `<div class="recipe-part" data-part="${index}">${image(part.id)}<span><strong>${INGREDIENTS[part.id].name}</strong></span><span class="recipe-part-check">${icon('check')}</span></div>`).join('');
+}
+function layoutOrderPage(strip, direction = 0) {
+  const cards = [...strip.querySelectorAll('.rolling-order')];
+  const width = strip.clientWidth;
+  const singlePageSize = Math.max(1, Math.floor((width + 6) / 167));
+  const pageSize = cards.length <= singlePageSize ? singlePageSize : Math.max(1, Math.floor((width - 76) / 167));
+  const pages = Math.max(1, Math.ceil(cards.length / pageSize));
+  const activeId = strip.dataset.firstOrder;
+  const activeIndex = cards.findIndex(card => card.dataset.orderId === activeId);
+  const current = activeIndex < 0 ? Number(strip.dataset.page || 0) : Math.floor(activeIndex / pageSize);
+  const page = Math.min(pages - 1, Math.max(0, current + direction));
+  cards.forEach((card, i) => { card.hidden = Math.floor(i / pageSize) !== page; });
+  strip.dataset.page = String(page);
+  strip.dataset.firstOrder = cards[page * pageSize]?.dataset.orderId || '';
+  strip.querySelector('.order-pagination').hidden = pages <= 1;
+  const [prev, next] = strip.querySelectorAll('[data-action="order-page"]');
+  prev.disabled = page === 0;
+  next.disabled = page + 1 === pages;
+  strip.querySelector('.order-page-count').textContent = `${page + 1}/${pages}`;
 }
 function openChallengeResult() {
   const k = state.kitchen;
@@ -499,29 +537,34 @@ function updateCookingUI(k) {
   host.dataset.lampServed = String(!!k.places.lamp);
   host.dataset.flowersServed = String(!!k.places.flowers);
   host.dataset.spiceBag = k.spices.join(',');
-  host.dataset.brothReady = String(k.broth.length === 3);
+  host.dataset.brothReady = String(k.broth.length === 3 || k.broth2.length === 3);
   host.dataset.photoMeal = String(!!k.photo.meal);
   host.dataset.photoShots = String(k.photo.shots);
   host.dataset.packingStep = String(k.packing.step);
   host.dataset.packingMeal = String(!!k.packing.meal);
   const revealed = String(k.puzzle.solved);
-  if (host.dataset.recipeRevealed !== revealed) {
-    host.dataset.recipeRevealed = revealed;
-    document.querySelector('.cooking-recipe').innerHTML = recipePartsHTML();
+  const displayedOrder = k.delivered ? k.lastServedOrder : k.orders[0];
+  const recipe = orderRecipe(k.chapter, displayedOrder);
+  const recipeKey = `${revealed}:${displayedOrder?.id}`;
+  if (host.dataset.recipeKey !== recipeKey) {
+    host.dataset.recipeKey = recipeKey;
+    document.querySelector('.order-ticket .ticket-number strong').textContent = displayedOrder ? `#${String(displayedOrder.id).padStart(3, '0')}` : '—';
+    document.querySelector('.order-ticket h3').textContent = displayedOrder ? recipe.name : '等待下一张订单';
+    document.querySelector('.order-subtitle').textContent = displayedOrder ? recipe.subtitle || '按订单备好这次的食材。' : '';
+    document.querySelector('.cooking-recipe').innerHTML = displayedOrder ? recipePartsHTML(displayedOrder) : '';
     icons();
   }
   const queue = document.querySelector('.order-queue');
   const queueKey = `${host.dataset.orderIds}:${revealed}:${k.delivered}`;
   if (queue.dataset.queueKey !== queueKey) {
-    const scroll = queue.scrollLeft;
     queue.dataset.queueKey = queueKey;
     queue.innerHTML = k.delivered ? '<span class="queue-empty">挑战达标</span>' : k.orders.length ? k.orders.map(order => `
-      <article class="rolling-order" data-order-id="${order.id}" aria-label="订单 ${order.id}">
+      <article class="rolling-order" data-order-id="${order.id}" aria-label="订单 ${order.id}：${esc(orderRecipe(k.chapter, order).name)}">
         <div class="order-heading"><span class="order-sequence">订单 ${String(order.id).padStart(2, '0')}</span><span class="order-time"></span></div>
-        <div class="order-food">${recipePartsHTML()}</div>
+        <div class="order-food">${recipePartsHTML(order)}</div>
         <div class="order-patience" role="progressbar" aria-label="订单 ${order.id} 剩余时间" aria-valuemin="0" aria-valuemax="${CHALLENGES[k.chapter].orderLifetime}"><span></span></div>
       </article>`).join('') : '<span class="queue-empty">等候新订单 <span class="next-order-time"></span></span>';
-    queue.scrollLeft = scroll;
+    layoutOrderPage(queue.parentElement);
     icons();
   }
   for (const order of k.orders) {
@@ -535,6 +578,9 @@ function updateCookingUI(k) {
     card.querySelector('.order-patience > span').style.width = `${remaining / total * 100}%`;
     card.classList.toggle('urgent', remaining <= 30);
     card.classList.toggle('order-expiring', remaining <= 5);
+    const progress = plateProgress(k, order);
+    card.querySelectorAll('[data-part]').forEach(element =>
+      element.classList.toggle('plated', progress[Number(element.dataset.part)]));
   }
   const nextArrival = Math.max(0, Math.ceil(k.nextOrderAt - k.elapsed));
   const next = queue.querySelector('.next-order-time');
@@ -563,19 +609,18 @@ function updateCookingUI(k) {
   if (feedback.textContent !== k.message) feedback.textContent = k.message;
   feedback.className = `kitchen-feedback ${k.messageKind}`;
   const plated = plateProgress(k);
-  document.querySelectorAll('.order-queue [data-part], .cooking-recipe [data-part]').forEach(element => {
-    const card = element.closest('[data-order-id]');
-    element.classList.toggle('plated', (!card || Number(card.dataset.orderId) === k.orders[0]?.id) && (plated[Number(element.dataset.part)] || k.delivered));
+  document.querySelectorAll('.cooking-recipe [data-part]').forEach(element => {
+    element.classList.toggle('plated', plated[Number(element.dataset.part)] || k.delivered);
   });
-  document.querySelector('.plated-count').textContent = `${k.delivered ? DISHES[k.chapter].parts.length : plated.filter(Boolean).length} / ${plated.length}`;
-  for (const method of ['pot', 'oven']) {
-    const job = k[method]; const el = document.querySelector(`[data-appliance="${method}"]`);
+  document.querySelector('.plated-count').textContent = !displayedOrder ? '' : `${k.delivered ? recipe.parts.length : plated.filter(Boolean).length} / ${recipe.parts.length}`;
+  for (const id of APPLIANCES.flat()) {
+    const job = k[id]; const el = document.querySelector(`[data-appliance="${id}"]`);
     el.querySelector('strong').textContent = !job.item ? '空闲' : job.waiting ? '等待第二种水果' : job.ready ? '已熟 · 随时可取' : `还有 ${Math.ceil(job.duration - job.elapsed)} 秒`;
     const percent = job.item ? job.elapsed / job.duration * 100 : 0;
     el.querySelector('[role="progressbar"]').setAttribute('aria-valuenow', String(Math.round(percent)));
     el.querySelector('[role="progressbar"] > span').style.width = `${percent}%`;
     el.classList.toggle('ready', job.ready);
-    host.dataset[`${method}State`] = !job.item ? 'empty' : job.waiting ? 'waiting' : job.ready ? 'ready' : 'cooking';
+    host.setAttribute(`data-${id}-state`, !job.item ? 'empty' : job.waiting ? 'waiting' : job.ready ? 'ready' : 'cooking');
   }
   host.dataset.boardState = k.board.item ? k.board.item.cut ? 'cut' : 'raw' : 'empty';
   document.querySelector('.birthday-note-button').hidden = !!pendingBirthdayNote
@@ -597,15 +642,16 @@ function openKitchenPuzzle() {
   const k = state.kitchen;
   if (k.chapter !== 5) { openKitchenClue(); return; }
   const theme = THEMES[k.chapter];
+  const sequence = finaleOrder(k.holding);
   let fields = '';
   if (theme.options) {
     fields = `<div class="puzzle-choices">${theme.options.map(id => `<label class="puzzle-choice"><input type="checkbox" name="choice" value="${id}">${SPICES[id] ? icon(SPICES[id].symbol) : image(id)}<span>${SPICES[id]?.name || INGREDIENTS[id].name}</span></label>`).join('')}</div>`;
   } else if (theme.order) {
     const captions = ['前奏', '主调', '尾声'];
-    fields = `<div class="puzzle-order">${captions.map((caption, i) => `<label>${caption}<select class="text-input" name="slot-${i}" required><option value="">请选择</option>${DISHES[k.chapter].parts.map(part => `<option value="${part.id}">${INGREDIENTS[part.id].name}</option>`).join('')}</select></label>`).join('')}</div>
+    fields = `<div class="puzzle-order">${captions.map((caption, i) => `<label>${caption}<select class="text-input" name="slot-${i}" required><option value="">请选择</option>${sequence.map(id => `<option value="${id}">${INGREDIENTS[id].name}</option>`).join('')}</select></label>`).join('')}</div>
       <p class="puzzle-carry-note">${k.holding?.type === 'plate' ? '完整餐盘已就位。' : '请端着完整料理的餐盘回来。'}</p>`;
   }
-  const reference = theme.order ? `<div class="meal-reference">${theme.order.map((id, i) => `<span>${image(id)}<small>${['前奏', '主调', '尾声'][i]}</small></span>`).join('')}</div>` : '';
+  const reference = theme.order ? `<div class="meal-reference">${sequence.map((id, i) => `<span>${image(id)}<small>${['前奏', '主调', '尾声'][i]}</small></span>`).join('')}</div>` : '';
   openModal(`<div class="puzzle-story"><span class="modal-eyebrow">KITCHEN 0${k.chapter + 1} · ${theme.name}</span><h2>${theme.title}</h2><p class="puzzle-clue">${theme.clue}</p>${reference}</div><form id="kitchen-puzzle-form">${fields}<p class="puzzle-result" role="status"></p><button class="primary-button full-width" type="submit">${icon('utensils')}按餐序摆好料理</button></form>`, 'kitchen-puzzle-modal');
 }
 
@@ -622,6 +668,7 @@ function openBentoPacking() {
   const root = document.querySelector('.bento-packing-modal');
   const canvas = root.querySelector('#bento-packing');
   const polish = usesKitchenPolish(k.chapter);
+  const carrot = k.packing.meal.contents.some(item => item.id === 'carrot');
   const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
   let frame = 0;
   function animatePacking(id) {
@@ -632,7 +679,7 @@ function openBentoPacking() {
     let landed = false;
     const draw = time => {
       const progress = Math.min(1, Math.max(0, (time - start) / duration));
-      paintPackingTable(canvas, step, progress, polish);
+      paintPackingTable(canvas, step, progress, polish, carrot);
       if (!landed && progress >= .74) {
         landed = true;
         playKitchenCue(id);
@@ -663,7 +710,7 @@ function openBentoPacking() {
     if (polish && !reduceMotion.matches) animatePacking(id);
     else {
       cancelAnimationFrame(frame);
-      paintPackingTable(canvas, k.packing.step, 1, polish);
+      paintPackingTable(canvas, k.packing.step, 1, polish, carrot);
       if (polish) playKitchenCue(id);
       else if (!state.muted) playNote(523.25 + k.packing.step * 65, .2);
     }
@@ -709,7 +756,7 @@ function openBentoPacking() {
   });
   const cleanup = modalCleanup;
   modalCleanup = () => { cleanup(); ghost?.remove(); cancelAnimationFrame(frame); };
-  paintPackingTable(canvas, k.packing.step, 1, polish);
+  paintPackingTable(canvas, k.packing.step, 1, polish, carrot);
   update();
 }
 
@@ -738,8 +785,9 @@ function openMemoryCamera() {
     </div>`, 'memory-camera-modal');
   const canvas = document.querySelector('#memory-camera');
   const root = document.querySelector('.memory-camera-modal');
+  const carrot = k.photo.meal.contents.some(item => item.id === 'carrot');
   const update = () => {
-    paintMemoryPhoto(canvas, k.photo);
+    paintMemoryPhoto(canvas, { ...k.photo, carrot });
     const quality = memoryPhotoQuality(k.photo);
     root.dataset.ready = String(quality.ready);
     document.querySelector('#memory-framing-status').textContent = quality.framed ? '两套餐具都入镜了' : '还有餐具在画面外';
@@ -1160,6 +1208,7 @@ document.addEventListener('click', async (event) => {
       if (state.chapter === index) break;
       state.chapter = index; state.kitchen = createKitchen(index); state.solved = false; state.feedback = ''; state.hint = 0; render(); break;
     case 'kitchen-load-retry': window.location.reload(); break;
+    case 'order-page': layoutOrderPage(button.closest('.order-strip'), index); break;
     case 'kitchen-interact': kitchenController?.interact(); break;
     case 'kitchen-chop': break;
     case 'bento-take':
@@ -1175,7 +1224,8 @@ document.addEventListener('click', async (event) => {
       if (retakeMemoryPhoto(state.kitchen)) openMemoryCamera();
       break;
     case 'memory-keep':
-      if (keepMemoryPhoto(state.kitchen)) { closeModal(); updateCookingUI(state.kitchen); }
+      if (keepMemoryPhoto(state.kitchen) || !state.kitchen.photo.meal) { closeModal(); updateCookingUI(state.kitchen); }
+      else document.querySelector('.memory-print-status').textContent = state.kitchen.message;
       break;
     case 'confirm-retry':
       openModal(`<span class="modal-eyebrow">ONE MORE LITTLE TRY</span><h2>重新制作这道菜？</h2><p class="modal-subtitle">清空当前台面、锅和餐盘，已经解锁的礼物会保留。</p><div class="confirm-actions"><button class="secondary-button" data-action="close">继续做这一份</button><button class="primary-button" data-action="retry-dish">${icon('rotate-ccw')}重新开始这道菜</button></div>`, 'confirm-modal'); break;

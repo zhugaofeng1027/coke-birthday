@@ -1,7 +1,7 @@
 import { drawRound as round, drawEllipse as ellipse, drawLine as line, drawHeart as heart } from './art.js';
 
 // Shared by the kitchen table and camera, so the photograph shows the meal on the table.
-export function paintMemoryTable(c, filled = true) {
+export function paintMemoryTable(c, filled = true, carrot = false) {
   round(c, -440, -270, 880, 540, 8, '#adc7c7');
   for (let x = -400; x < 440; x += 60) line(c, [[x, -270], [x, 270]], '#bfd4d0', 2);
   round(c, -380, -200, 760, 400, 8, '#f7f3e9');
@@ -27,6 +27,12 @@ export function paintMemoryTable(c, filled = true) {
     for (const [xx, yy] of [[-8, -16], [13, 6], [-5, 18]]) ellipse(c, xx, yy, 3, 4, '#d6b77f');
     c.restore();
     for (const [dx, dy] of [[-55, 62], [-25, 78], [4, 76]]) {
+      if (carrot) {
+        ellipse(c, x + dx, dy + 6, 15, 11, '#c87945');
+        ellipse(c, x + dx, dy + 1, 15, 11, '#eca572');
+        ellipse(c, x + dx, dy + 1, 5, 4, '#f3b888');
+        continue;
+      }
       round(c, x + dx - 6, dy, 12, 23, 3, '#eadac1');
       ellipse(c, x + dx, dy, 19, 12, '#b39a82');
       ellipse(c, x + dx - 5, dy - 3, 4, 2, '#d5c5b0');
@@ -47,7 +53,7 @@ export function paintMemoryPhoto(canvas, settings = { x: 0, y: 0, focus: 55 }) {
   const s = source.getContext('2d');
   s.fillStyle = '#e1e9e2'; s.fillRect(0, 0, 960, 640);
   s.translate(480 + settings.x * 7, 320 + settings.y * 4);
-  paintMemoryTable(s);
+  paintMemoryTable(s, true, settings.carrot);
   const c = canvas.getContext('2d');
   c.clearRect(0, 0, canvas.width, canvas.height);
   c.save();

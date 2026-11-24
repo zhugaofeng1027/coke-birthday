@@ -1,16 +1,17 @@
 import { createKitchen, stationsFor, worldFor } from '../../src/cooking.js';
 
 // Plan real keyboard movement around counters rather than teleporting the chef.
-export function wideRoute(chapter, start, stationId) {
+export function kitchenRoute(chapter, start, stationId, layout) {
   const k = createKitchen(chapter);
-  k.layout = 'landscape';
+  k.layout = layout;
   const stations = stationsFor(k);
   const target = stations.find(s => s.id === stationId).approach;
   const world = worldFor(k);
   const step = 12;
   const columns = Math.floor((world.width - 86) / step) + 1;
-  const rows = Math.floor((world.height - 86) / step) + 1;
-  const point = index => ({ x: 43 + index % columns * step, y: 43 + Math.floor(index / columns) * step });
+  const top = layout === 'landscape' ? 43 : 267;
+  const rows = Math.floor((world.height - 43 - top) / step) + 1;
+  const point = index => ({ x: 43 + index % columns * step, y: top + Math.floor(index / columns) * step });
   const clear = p => stations.every(s =>
     p.x < s.x - 21 || p.x > s.x + s.w + 21 || p.y < s.y - 21 || p.y > s.y + s.h + 21);
   const nodes = Array.from({ length: columns * rows }, (_, i) => i).filter(i => clear(point(i)));

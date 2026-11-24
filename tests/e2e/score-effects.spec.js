@@ -23,7 +23,7 @@ function prepareFinalOrder(source) {
 
 test('two expiring orders give one combined deduction while a later ticket stays normal', async ({ page }) => {
   await useKitchenFixture(page, source => source
-    .replace('orders: [{ id: 1, createdAt: 0, expiresAt: CHALLENGES[chapter].orderLifetime }]',
+    .replace('orders: [newOrder(chapter, 1, 0)]',
       'orders: [{id: 1, createdAt: 0, expiresAt: 2.5}, {id: 2, createdAt: 0, expiresAt: 2.5}, {id: 3, createdAt: 0, expiresAt: 55}]')
     .replace('nextOrderId: 2', 'nextOrderId: 4'));
   await page.goto('/?debug=1&chapter=2');

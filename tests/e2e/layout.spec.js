@@ -22,7 +22,7 @@ test('wide kitchens fill the canvas without stretching or hiding stations behind
       return {
         canvas: bounds('#kitchen'), host: bounds('#kitchen-host'),
         width: canvas.width, height: canvas.height, colors: colors.size,
-        controls: ['.joystick', '.cooking-buttons', '.mobile-recipe', '.hands-status', '#kitchen-feedback'].map(bounds),
+        controls: ['.joystick', '.cooking-buttons', '.rolling-order', '.hands-status', '#kitchen-feedback'].map(bounds),
       };
     });
     expect(geometry.canvas.width).toBeGreaterThanOrEqual(geometry.host.width - 2);

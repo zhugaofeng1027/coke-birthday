@@ -70,17 +70,16 @@ export function startCooking(host, controlsRoot, kitchen, callbacks, polish = fa
   const operate = (id) => {
     if (stopped || paused || document.hidden) return;
     const deliveries = kitchen.deliveries;
-    const target = polish ? id ?? nearestStation(kitchen)?.id : null;
+    const target = polish ? id ? stationsFor(kitchen).find(s => s.id === id) : nearestStation(kitchen) : null;
     const held = kitchen.holding;
     const portions = held?.contents?.length;
-    const ovenItem = kitchen.oven.item;
-    const potItem = kitchen.pot.item;
+    const jobItem = kitchen[target?.id]?.item;
     interact(kitchen, id);
     if (target && kitchen.deliveries === deliveries && !kitchen.packing.openRequested
       && (held !== kitchen.holding || portions !== kitchen.holding?.contents?.length
-          || ovenItem !== kitchen.oven.item || potItem !== kitchen.pot.item)) {
-      const kind = target === 'oven' ? 'oven' : !held && kitchen.holding ? 'take' : 'place';
-      action = { stationId: target, time: performance.now() };
+          || jobItem !== kitchen[target.id]?.item)) {
+      const kind = target.type === 'oven' ? 'oven' : !held && kitchen.holding ? 'take' : 'place';
+      action = { stationId: target.id, time: performance.now() };
       callbacks.onKitchenCue?.(kind);
     }
     if (kitchen.puzzle.openRequested) { kitchen.puzzle.openRequested = false; callbacks.onPuzzle?.(); }

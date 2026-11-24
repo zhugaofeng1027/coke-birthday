@@ -8,7 +8,7 @@ export const THEMES = [
   },
   {
     name: '口袋便当铺', station: '便当打包台', title: '给出门的你，带一份惦记',
-    clue: '米饭煮好、鸡肉烤好、西兰花切好，一起装盘端到打包台。盖上盒盖，套好绑带，贴上爱心封签，再从取餐口交给你。',
+    clue: '米饭煮好、鸡肉烤好，再切好订单里的配菜。一起装盘端到打包台。盖盖、套上绑带、贴好爱心封签，再从取餐口交给你。',
     kind: 'bento',
     success: '便当交到你手里啦。出门也要好好吃饭，今天的惦记一起带上。',
     floor: ['#f7edf0', '#e4dee9'], wall: '#f0c9d2', counter: '#a398be', top: '#fff7e8', accent: '#ce788b',
@@ -22,7 +22,7 @@ export const THEMES = [
   },
   {
     name: '时光食堂', station: '回忆相片', title: '为这一餐拍张照',
-    clue: '旧照片里，有番茄热汤、金黄吐司和切好的蘑菇。把这一餐端到双人餐桌，让两套餐具一起入镜，留下一张清晰的新照片。',
+    clue: '旧照片里，有番茄热汤、金黄吐司和一份切好的配菜。按订单装盘后端到双人餐桌，让两套餐具一起入镜，留下一张清晰的新照片。',
     kind: 'memory',
     success: '今天的晚餐，也成为了我们的一张回忆。',
     floor: ['#e7f0f1', '#d5e2e5'], wall: '#bbd8de', counter: '#86a7b2', top: '#faf0dc', accent: '#d98279',
@@ -35,7 +35,7 @@ export const THEMES = [
   },
   {
     name: '只为你营业的花园餐厅', station: '花园餐序', title: '今晚的最后一道特别菜单',
-    clue: '前奏是清新的绿色，主调是热乎乎的烤肉，尾声留一口红色的甜。让三份味道依次入席。',
+    clue: '前奏是清新的绿色，主调是热乎乎的一口（烤肉或烤蘑菇，看订单），尾声留一口红色的甜。让三份味道依次入席。',
     kind: 'finale', order: ['broccoli', 'beef', 'strawberry'],
     success: '前奏、主调、尾声，都为你入席。今晚的花园亮起来啦。',
     floor: ['#e7eedf', '#d3dfd1'], wall: '#a6cbbb', counter: '#86aa91', top: '#f8e8e9', accent: '#ce809b',

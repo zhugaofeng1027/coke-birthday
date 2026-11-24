@@ -1,7 +1,7 @@
 import { test, expect } from './fixtures.js';
-import { DISHES, INGREDIENTS } from '../../src/cooking.js';
+import { createKitchen, DISHES, INGREDIENTS, LANDSCAPE_WORLD, orderRecipe, stationsFor } from '../../src/cooking.js';
 import { THEMES } from '../../src/themes.js';
-import { wideRoute } from './navigation.js';
+import { kitchenRoute } from './navigation.js';
 
 async function ready(page) {
   await page.goto('/');
@@ -11,7 +11,6 @@ async function position(page) {
   return page.locator('#kitchen-host').evaluate(el => ({ x: Number(el.dataset.playerX), y: Number(el.dataset.playerY) }));
 }
 async function walk(page, x, y) {
-  const precise = await page.locator('#kitchen-host').getAttribute('data-layout') === 'landscape';
   for (const [axis, target] of [['x', x], ['y', y]]) {
     const current = (await position(page))[axis];
     if (Math.abs(target - current) <= 3) continue;
@@ -25,7 +24,7 @@ async function walk(page, x, y) {
       }, { intervals: [20, 30, 30], timeout: 7000, message: `walk ${axis} to ${target}` }).toBeTruthy();
     } finally { await page.keyboard.up(key); }
     await page.waitForTimeout(120);
-    if (precise) for (let attempt = 0; attempt < 6; attempt++) {
+    for (let attempt = 0; attempt < 6; attempt++) {
       const delta = target - (await position(page))[axis];
       if (Math.abs(delta) <= 3) break;
       const correction = axis === 'x' ? delta > 0 ? 'ArrowRight' : 'ArrowLeft' : delta > 0 ? 'ArrowDown' : 'ArrowUp';
@@ -34,35 +33,12 @@ async function walk(page, x, y) {
     }
   }
 }
-const approaches = {
-  'stock-0': [137, 267], 'stock-1': [312, 267], 'stock-2': [487, 267], 'stock-3': [662, 267],
-  board: [325, 503], pot: [505, 503], oven: [660, 399], plates: [184, 399],
-  plating: [335, 572], serve: [585, 572], trash: [173, 620],
-  puzzle: [750, 540], lamp: [184, 535],
-  'spice-anise': [505, 585], 'spice-cinnamon': [560, 585], 'spice-bay': [615, 585], 'spice-chili': [670, 585],
-};
 async function go(page, station) {
   const p = await position(page);
-  if (await page.locator('#kitchen-host').getAttribute('data-layout') === 'landscape') {
-    const chapter = Number(await page.locator('#kitchen-host').getAttribute('data-theme'));
-    for (const point of wideRoute(chapter, p, station)) await walk(page, point.x, point.y);
-    await expect(page.locator('#kitchen-host')).toHaveAttribute('data-nearest', station);
-    return;
-  }
-  if (p.y < 470) {
-    const exit = p.x > 600 ? 641 : 199;
-    if (p.x >= 230 && p.x <= 600) { await walk(page, p.x, 279); await walk(page, exit, 279); }
-    else await walk(page, exit, p.y);
-    await walk(page, exit, 520);
-  }
-  const chapter = Number(await page.locator('#kitchen-host').getAttribute('data-theme'));
-  const [x, y] = station === 'serve' && [1, 2, 3].includes(chapter) ? [190, 530] : approaches[station];
-  const q = await position(page);
-  await walk(page, q.x, 520);
-  if (station.startsWith('stock')) {
-    await walk(page, 199, 520); await walk(page, 199, 267); await walk(page, x, y);
-  } else { await walk(page, x, 520); await walk(page, x, y); }
-  await expect(page.locator('#kitchen-host')).toHaveAttribute('data-nearest', station);
+  const host = page.locator('#kitchen-host');
+  const chapter = Number(await host.getAttribute('data-theme'));
+  for (const point of kitchenRoute(chapter, p, station, await host.getAttribute('data-layout'))) await walk(page, point.x, point.y);
+  await expect(host).toHaveAttribute('data-nearest', station);
 }
 async function use(page, station) { await go(page, station); await page.locator('[data-action="kitchen-interact"]').click(); }
 async function chop(page) {
@@ -82,21 +58,21 @@ async function chop(page) {
   await expect(page.locator('#kitchen-host')).toHaveAttribute('data-board-state', 'cut');
   await page.locator('[data-action="kitchen-interact"]').click();
 }
-async function prepPlate(page) {
+async function prepPlate(page, station = 'plating') {
   await use(page, 'plates');
   await expect(page.locator('#hands-name')).toHaveText('空餐盘');
-  await use(page, 'plating');
+  await use(page, station);
   await expect(page.locator('#hands-name')).toHaveText('两手空空');
 }
 
-async function puzzle(page, chapter) {
+async function puzzle(page, chapter, order = THEMES[chapter].order) {
   await use(page, 'puzzle');
   await expect(page.locator('.kitchen-puzzle-modal')).toBeVisible();
   const theme = THEMES[chapter];
   if (theme.answer) {
     for (const id of theme.answer) await page.locator(`[name="choice"][value="${id}"]`).check();
   } else if (theme.order) {
-    for (const [i, id] of theme.order.entries()) await page.locator(`[name="slot-${i}"]`).selectOption(id);
+    for (const [i, id] of order.entries()) await page.locator(`[name="slot-${i}"]`).selectOption(id);
   }
   await page.locator('#kitchen-puzzle-form button[type="submit"]').click();
   await expect(page.locator('.kitchen-puzzle-modal')).toBeHidden();
@@ -105,33 +81,35 @@ async function puzzle(page, chapter) {
 
 async function repeatOrder(page, chapter) {
   const dish = DISHES[chapter];
-  await prepPlate(page);
-  for (const part of dish.parts) {
+  const recipe = orderRecipe(chapter, { variant: 1 });
+  await prepPlate(page, 'plating-2');
+  for (const part of recipe.parts) {
     if (part.id === 'jam') {
       for (const id of ['strawberry', 'grape']) {
-        await use(page, `stock-${dish.stock.indexOf(id)}`); await chop(page); await use(page, 'pot');
+        await use(page, `stock-${dish.stock.indexOf(id)}`); await chop(page); await use(page, 'pot-2');
       }
-      await expect(page.locator('#kitchen-host')).toHaveAttribute('data-pot-state', 'ready', { timeout: 12000 });
+      await expect(page.locator('#kitchen-host')).toHaveAttribute('data-pot-2-state', 'ready', { timeout: 12000 });
       await page.locator('[data-action="kitchen-interact"]').click();
     } else {
       await use(page, `stock-${dish.stock.indexOf(part.id)}`);
       if (INGREDIENTS[part.id].cut) await chop(page);
       if (part.method !== 'fresh') {
-        await use(page, part.method);
-        await expect(page.locator('#kitchen-host')).toHaveAttribute(`data-${part.method}-state`, 'ready', { timeout: 12000 });
+        const appliance = chapter === 2 && part.method === 'pot' ? 'pot' : `${part.method}-2`;
+        await use(page, appliance);
+        await expect(page.locator('#kitchen-host')).toHaveAttribute(`data-${appliance}-state`, 'ready', { timeout: 12000 });
         await page.locator('[data-action="kitchen-interact"]').click();
       }
     }
     if (chapter === 4 && part.id === 'mint') { await use(page, 'lamp'); continue; }
-    await use(page, 'plating');
+    await use(page, 'plating-2');
   }
-  await use(page, 'plating');
+  await use(page, 'plating-2');
   if (chapter === 1) {
     await use(page, 'puzzle');
     for (const step of ['lid', 'band', 'seal']) await page.locator(`[data-packing-piece="${step}"]`).click();
     await page.locator('[data-action="bento-take"]').click();
   }
-  if (chapter === 5) await puzzle(page, chapter);
+  if (chapter === 5) await puzzle(page, chapter, recipe.parts.map(part => part.id));
   await use(page, 'serve');
   if (chapter === 3) {
     await page.getByRole('button', { name: '居中取景', exact: true }).click();
@@ -194,11 +172,13 @@ test('bento polish plays through from the chopping board to a scored delivery', 
   await expect(page.locator('#hands-name')).toHaveText('两手空空');
   await expect.poll(() => page.evaluate(() => window.bentoFrequencies.includes(340))).toBe(true);
   await go(page, 'oven');
-  const oven = async () => scene.evaluate(canvas => {
-    const x = (canvas.width - 1260) / 2 + 1050;
-    const y = (canvas.height - 525) / 2 + 210;
-    return [...canvas.getContext('2d').getImageData(x, y, 126, 86).data];
-  });
+  const kitchen = { ...createKitchen(1), layout: 'landscape' };
+  const ovenStation = stationsFor(kitchen).find(station => station.id === 'oven');
+  const oven = async () => scene.evaluate((canvas, { station, world }) => {
+    const x = (canvas.width - world.width) / 2 + station.x;
+    const y = (canvas.height - world.height) / 2 + station.y;
+    return [...canvas.getContext('2d').getImageData(x, y, station.w, station.h).data];
+  }, { station: ovenStation, world: LANDSCAPE_WORLD });
   await page.locator('[data-action="kitchen-interact"]').click();
   await expect(page.locator('#hands-name')).toContainText('鸡肉');
   await expect(host).toHaveAttribute('data-oven-state', 'empty');
@@ -726,7 +706,7 @@ test('landscape keeps the kitchen and both thumb controls on one screen', async 
     };
     return {
       kitchen: rect('#kitchen'), stick: rect('.joystick'), buttons: rect('.cooking-buttons'),
-      hands: rect('.hands-status'), recipe: rect('.mobile-recipe'),
+      hands: rect('.hands-status'), recipe: rect('.order-strip'),
       feedback: rect('#kitchen-feedback'), header: rect('.site-header'),
       width: innerWidth, height: innerHeight,
       scrollWidth: document.documentElement.scrollWidth, scrollHeight: document.documentElement.scrollHeight,

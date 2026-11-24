@@ -4,7 +4,7 @@ test('orders hide preparation instructions and the challenge clock pauses for re
   await page.goto('/?debug=1&chapter=2');
   const host = page.locator('#kitchen-host');
   await expect(host).toHaveAttribute('data-ready', 'true');
-  for (const selector of ['.mobile-recipe', '.cooking-recipe']) await expect(page.locator(selector)).not.toContainText(/切配|煮锅|烤箱|秒|新鲜装盘/);
+  for (const selector of ['.order-queue', '.cooking-recipe']) await expect(page.locator(selector)).not.toContainText(/切配|煮锅|烤箱|秒|新鲜装盘/);
   await expect(page.locator('#shift-score')).toHaveText('0 / 200');
   const start = Number(await host.getAttribute('data-time-left'));
   await expect.poll(async () => Number(await host.getAttribute('data-time-left'))).toBeLessThan(start);
@@ -68,7 +68,7 @@ test('gift modal keeps its title, close and action visible with a long message',
   await page.locator('[data-action="revisit"][data-index="0"]').click();
   await expect(page.locator('.gift-modal')).toBeVisible();
   const photo = page.locator('.gift-modal .gift-photo');
-  await expect(photo).toHaveAttribute('src', /gift-grape-candy\.webp$/);
+  expect(await photo.evaluate(img => new URL(img.src).pathname)).toMatch(/gift-grape-candy\.webp$/);
   await expect(photo).toHaveCSS('object-fit', 'contain');
   expect(await photo.evaluate(async img => { await img.decode(); return img.naturalWidth; })).toBeGreaterThan(0);
   const result = await page.locator('.gift-modal').evaluate(el => {
@@ -108,6 +108,8 @@ test('rolling orders arrive without delivery, pause for clues and expire with a 
   await expect(host).toHaveAttribute('data-deliveries', '0');
   const cards = page.locator('.rolling-order');
   await expect(cards).toHaveCount(3);
+  await expect(cards.nth(0)).toContainText('西兰花');
+  await expect(cards.nth(1)).toContainText('胡萝卜');
   const countdowns = await page.locator('.order-time').allTextContents();
   expect(new Set(countdowns).size).toBe(3);
   await page.getByRole('button', { name: '查看本关线索', exact: true }).click();
@@ -126,13 +128,25 @@ test('rolling orders arrive without delivery, pause for clues and expire with a 
   await page.screenshot({ path: `test-results/${testInfo.project.name}-rolling-orders.png`, animations: 'disabled' });
   const queue = await page.locator('.order-queue').evaluate(el => {
     const r = el.getBoundingClientRect();
-    return { x: r.x, y: r.y, right: r.right, bottom: r.bottom, width: innerWidth, height: innerHeight, clipped: el.scrollWidth > el.clientWidth };
+    const cardsFit = [...el.querySelectorAll('.rolling-order:not([hidden])')].every(card => {
+      const box = card.getBoundingClientRect();
+      const food = card.querySelector('.order-food');
+      return box.left >= r.left && box.right <= r.right + 1 && box.bottom <= r.bottom + 1
+        && food.scrollWidth <= food.clientWidth + 1;
+    });
+    return { x: r.x, y: r.y, right: r.right, bottom: r.bottom, width: innerWidth, height: innerHeight, cardsFit };
   });
   expect(queue.x).toBeGreaterThanOrEqual(0); expect(queue.y).toBeGreaterThanOrEqual(0);
   expect(queue.right).toBeLessThanOrEqual(queue.width + 1); expect(queue.bottom).toBeLessThanOrEqual(queue.height + 1);
-  if (testInfo.project.name === 'compact-phone') expect(queue.clipped).toBe(true);
-  await page.locator('.order-queue').evaluate(el => { el.scrollLeft = el.scrollWidth; });
-  if (queue.clipped) expect(await page.locator('.order-queue').evaluate(el => el.scrollLeft)).toBeGreaterThan(0);
+  expect(queue.cardsFit).toBe(true);
+  const nextPage = page.getByRole('button', { name: '下一页订单' });
+  if (testInfo.project.name === 'compact-phone') {
+    await nextPage.click();
+    await expect(page.locator('.order-page-count')).toHaveText('2/2');
+    await expect(page.locator('.rolling-order:not([hidden])').first()).toBeInViewport({ ratio: 1 });
+    await page.getByRole('button', { name: '上一页订单' }).click();
+    await expect(page.locator('.order-page-count')).toHaveText('1/2');
+  }
   await page.locator('.order-queue').focus();
   const position = await host.evaluate(el => [el.dataset.playerX, el.dataset.playerY]);
   await page.keyboard.down('ArrowRight');

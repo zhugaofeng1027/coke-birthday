@@ -20,7 +20,7 @@ export function paintPackingPiece(c, id, x, y, width) {
   c.restore();
 }
 
-export function paintBento(c, step, x, y, width, filled = true) {
+export function paintBento(c, step, x, y, width, filled = true, carrot = false) {
   c.save(); c.translate(x, y); c.scale(width / 400, width / 400);
   ellipse(c, 0, 130, 212, 24, '#445b5b20');
   round(c, -198, -94, 396, 236, 27, '#c87d8e', '#a65e74');
@@ -41,6 +41,12 @@ export function paintBento(c, step, x, y, width, filled = true) {
     }
     for (let i = 0; i < 3; i++) {
       const xx = 53 + i * 43;
+      if (carrot) {
+        round(c, xx - 12, 36, 26, 41, 7, '#c87945');
+        round(c, xx - 12, 29, 24, 37, 7, '#eca572');
+        line(c, [[xx - 6, 36], [xx - 6, 52]], '#f7c299', 3);
+        continue;
+      }
       round(c, xx - 5, 42, 10, 40, 2, '#a6ba7c');
       for (const [dx, dy] of [[-10, 12], [10, 12], [0, 0]]) ellipse(c, xx + dx, 31 + dy, 17, 17, '#6e9a70');
       ellipse(c, xx - 4, 27, 11, 10, '#8cb580');
@@ -52,7 +58,7 @@ export function paintBento(c, step, x, y, width, filled = true) {
   c.restore();
 }
 
-export function paintPackingTable(canvas, step, progress = 1, polish = false) {
+export function paintPackingTable(canvas, step, progress = 1, polish = false, carrot = false) {
   const c = canvas.getContext('2d');
   c.clearRect(0, 0, canvas.width, canvas.height);
   c.save(); c.scale(canvas.width / 600, canvas.height / 400);
@@ -68,7 +74,7 @@ export function paintPackingTable(canvas, step, progress = 1, polish = false) {
   c.setLineDash([]);
   const settling = progress < 1 && step > 0;
   const impact = settling && progress >= .74 ? (progress - .74) / .26 : 1;
-  paintBento(c, settling ? step - 1 : step, 300, 211 + Math.sin(impact * Math.PI) * 5, 380);
+  paintBento(c, settling ? step - 1 : step, 300, 211 + Math.sin(impact * Math.PI) * 5, 380, true, carrot);
   if (settling) {
     const piece = ['lid', 'band', 'seal'][step - 1];
     const move = Math.min(1, progress / .74);

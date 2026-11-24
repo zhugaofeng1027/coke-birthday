@@ -2,12 +2,13 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { normalizeConfig, normalizeProgress, newFlowerRoom, advanceFlowerRoom } from '../src/game.js';
 import {
-  createKitchen, DISHES, INGREDIENTS, CHALLENGES, ORDER_POINTS, ORDER_PENALTY, stationsFor, worldFor, setKitchenLayout, REACH, CHOP_SECONDS,
+  createKitchen, DISHES, INGREDIENTS, CHALLENGES, ORDER_POINTS, ORDER_PENALTY, stationsFor, worldFor, setKitchenLayout, REACH, CHOP_SECONDS, orderRecipe, finaleOrder,
   interact, stepKitchen, canChop, plateMatches, stationDistance, nearestStation, nextTask, kitchenClue,
   solveKitchenPuzzle, canServe, isHeartJam, packBento, takePackedBento, plateProgress,
   adjustMemoryCamera, memoryPhotoQuality, captureMemoryPhoto, retakeMemoryPhoto, keepMemoryPhoto,
 } from '../src/cooking.js';
 import { THEMES, STEAM_MESSAGE } from '../src/themes.js';
+import { kitchenRoute } from './e2e/navigation.js';
 
 function at(k, id) { k.player = { ...stationsFor(k).find(s => s.id === id).approach }; }
 function use(k, id) { at(k, id); interact(k, id); }
@@ -16,7 +17,7 @@ function cut(k) { use(k, 'board'); stepKitchen(k, CHOP_SECONDS, true); interact(
 function solve(k) {
   at(k, 'puzzle');
   const t = THEMES[k.chapter];
-  return solveKitchenPuzzle(k, t.answer || { order: t.order });
+  return solveKitchenPuzzle(k, t.answer || { order: finaleOrder(k.holding) });
 }
 function jam(k, fruits = ['strawberry', 'grape']) {
   for (const id of fruits) { take(k, id); cut(k); use(k, 'pot'); }
@@ -73,7 +74,14 @@ test('the rereadable steam clue stays hidden until hot tea reveals it and surviv
 
 test('all stations have reachable approaches and remote interactions cannot take ingredients', () => {
   const k = createKitchen();
-  for (let chapter = 0; chapter < 6; chapter++) stationsFor(chapter).forEach(s => assert.ok(stationDistance(s.approach, s) <= REACH, s.id));
+  for (const layout of ['desktop', 'landscape']) for (let chapter = 0; chapter < 6; chapter++) {
+    const kitchen = createKitchen(chapter);
+    setKitchenLayout(kitchen, layout === 'landscape');
+    for (const station of stationsFor(kitchen)) {
+      assert.ok(stationDistance(station.approach, station) <= REACH, station.id);
+      assert.doesNotThrow(() => kitchenRoute(chapter, kitchen.player, station.id, layout));
+    }
+  }
   interact(k, 'stock-0'); assert.equal(k.holding, null);
   use(k, 'stock-0'); assert.equal(k.holding.id, 'strawberry');
   assert.equal(nearestStation(k).id, 'stock-0');
@@ -117,6 +125,29 @@ test('pot and oven cook concurrently while the chef prepares another ingredient'
   assert.equal(k.pot.ready, true); assert.equal(k.pot.elapsed, k.pot.duration);
 });
 
+test('both pots, ovens and plating tables run independently; a later recipe can be served first', () => {
+  const k = createKitchen(1);
+  stepKitchen(k, CHALLENGES[1].orderInterval);
+  for (const id of ['pot', 'pot-2']) { take(k, 'rice'); use(k, id); }
+  for (const id of ['oven', 'oven-2']) { take(k, 'chicken'); cut(k); use(k, id); }
+  stepKitchen(k, 10);
+  for (const id of ['pot', 'pot-2', 'oven', 'oven-2']) assert.equal(k[id].ready, true);
+  for (const suffix of ['', '-2']) {
+    const slot = `plating${suffix}`;
+    use(k, 'plates'); use(k, slot);
+    for (const id of ['pot', 'oven']) { use(k, id + suffix); use(k, slot); }
+    take(k, suffix ? 'carrot' : 'broccoli'); cut(k); use(k, slot);
+    assert.equal(plateMatches(k[slot], 1, suffix ? 1 : 0), true);
+  }
+  use(k, 'plating-2'); pack(k); use(k, 'serve');
+  assert.deepEqual(k.orders.map(order => order.id), [1]);
+  assert.equal(k.score, ORDER_POINTS);
+  assert.equal(k.plating.contents.length, 3);
+  use(k, 'plating'); pack(k); use(k, 'serve');
+  assert.equal(k.score, 200);
+  assert.equal(k.delivered, true);
+});
+
 for (const { chapter, dish, wide } of DISHES.flatMap((dish, chapter) => [false, true].map(wide => ({ chapter, dish, wide })))) {
   test(`complete two scored orders in the ${wide ? 'landscape ' : ''}cooking chain for ${dish.name}`, () => {
     const k = createKitchen(chapter);
@@ -124,19 +155,22 @@ for (const { chapter, dish, wide } of DISHES.flatMap((dish, chapter) => [false, 
     if (chapter === 2) spiceBroth(k);
     for (let order = 1; order <= 2; order++) {
       if (!k.orders.length) stepKitchen(k, k.nextOrderAt - k.elapsed);
+      const ticket = k.orders[0];
+      const recipe = orderRecipe(chapter, ticket);
       if (chapter === 4) {
         cookPart(k, dish.parts[0]); at(k, 'puzzle'); stepKitchen(k, 2);
         use(k, 'lamp');
         use(k, 'plates'); use(k, 'plating');
-        cookPart(k, dish.parts[1]); use(k, 'plating'); interact(k, 'plating'); use(k, 'serve');
+        for (const part of recipe.parts.slice(1)) { cookPart(k, part); use(k, 'plating'); }
+        use(k, 'plating'); use(k, 'serve');
       } else {
         use(k, 'plates'); use(k, 'plating');
-        for (const part of dish.parts) {
+        for (const part of recipe.parts) {
           if (part.id === 'jam') { jam(k); interact(k, 'pot'); }
           else cookPart(k, part);
           use(k, 'plating');
         }
-        assert.equal(plateMatches(k.plating, chapter), true);
+        assert.equal(plateMatches(k.plating, chapter, ticket.variant), true);
         use(k, 'plating');
         if (chapter === 1) pack(k);
         if (chapter === 5) assert.equal(solve(k), true);
@@ -159,7 +193,7 @@ for (const { chapter, dish, wide } of DISHES.flatMap((dish, chapter) => [false, 
       if (chapter === 3 && order === 1) assert.equal(keepMemoryPhoto(k), false);
       assert.equal(k.score, score);
       if (order === 1) {
-        assert.deepEqual(plateProgress(k), dish.parts.map(() => false));
+        assert.deepEqual(plateProgress(k), orderRecipe(chapter, k.orders[0]).parts.map(() => false));
         assert.equal(k.packing.meal, null); assert.equal(k.packing.step, 0);
         assert.equal(k.photo.meal, null); assert.equal(k.photo.capture, null);
         assert.equal(k.puzzle.solved, chapter === 2);
@@ -269,10 +303,10 @@ test('order timing and penalties are independent of frame size, including a whol
   }
 });
 
-test('serving consumes the oldest ticket, never creates one, and penalties increase the pass requirement', () => {
+test('serving consumes the oldest matching ticket, never creates one, and penalties increase the pass requirement', () => {
   const k = createKitchen(5);
-  const meal = () => ({ type: 'plate', contents: DISHES[5].parts.map(part => ({ ...part, type: 'ingredient', cut: true })) });
-  k.holding = meal(); solve(k); use(k, 'serve');
+  const meal = (ticket) => ({ type: 'plate', contents: orderRecipe(5, ticket).parts.map(part => ({ ...part, type: 'ingredient', cut: true })) });
+  k.holding = meal(k.orders[0]); solve(k); use(k, 'serve');
   assert.equal(k.score, 100);
   assert.equal(k.orders.length, 0);
   assert.equal(k.nextOrderAt, CHALLENGES[5].orderInterval);
@@ -289,7 +323,7 @@ test('serving consumes the oldest ticket, never creates one, and penalties incre
   assert.equal(k.orders[0].id, 4);
   assert.equal(k.score, 200 - ORDER_PENALTY);
   assert.equal(k.delivered, false);
-  k.holding = meal(); solve(k); use(k, 'serve');
+  k.holding = meal(k.orders[0]); solve(k); use(k, 'serve');
   assert.equal(k.score, 300 - ORDER_PENALTY);
   assert.equal(k.delivered, true);
 });
@@ -512,7 +546,7 @@ test('bento packing gates each step, preserves progress and meal when reopened o
 test('wrong or duplicate bento food stays in hand and invalid meals cannot enter packing', () => {
   const k = createKitchen(1); use(k, 'plates'); use(k, 'plating');
   cookPart(k, DISHES[1].parts[0]); const rice = k.holding; use(k, 'plating');
-  take(k, 'carrot'); cut(k); use(k, 'plating');
+  cookPart(k, { id: 'carrot', method: 'pot' }); use(k, 'plating');
   assert.equal(k.holding.id, 'carrot'); assert.equal(k.plating.contents[0], rice);
   use(k, 'trash');
   cookPart(k, DISHES[1].parts[0]); use(k, 'plating');

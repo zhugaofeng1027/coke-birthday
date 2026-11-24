@@ -28,7 +28,6 @@
 .kitchen-loading { position: absolute; inset: 0; display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 8px; color: #344c40; font-size: 15px; }
 .kitchen-loading p { margin: 0; }
 .cooking-mode #kitchen { display: block; touch-action: none; }
-.mobile-recipe { display: none; }
 .queue-summary { margin: 9px 0; color: #a16644; font-size: 10px; line-height: 1.8; }
 .theme-clue { border-top: 1px dashed #d9ddd3; padding-top: 14px; margin-top: 12px; }
 .theme-clue strong { font-size: 11px; color: #657e77; }
@@ -170,14 +169,6 @@ body.needs-rotation { overflow: hidden; }
   .cooking-mode .scene-heading .chapter-tag { font-size: 7px; }
   .cooking-mode .scene-heading .text-button { font-size: 9px; }
   .cooking-mode .scene-heading .text-button svg { width: 12px; height: 12px; }
-  .mobile-recipe { display: flex; gap: 9px; align-items: center; margin-bottom: 9px; padding: 5px 0; border-top: 1px solid #e6e9df; border-bottom: 1px solid #e6e9df; }
-  .mobile-recipe .recipe-part { padding: 0; gap: 4px; flex: 1; }
-  .mobile-recipe .recipe-part > img { width: 29px; height: 29px; }
-  .mobile-recipe .recipe-part strong { font-size: 10px; }
-  .mobile-recipe .recipe-part small { font-size: 7px; white-space: nowrap; }
-  .mobile-recipe .recipe-part > span:nth-child(2) { gap: 2px; }
-  .mobile-recipe .recipe-part-check { display: none; }
-  .mobile-recipe .recipe-part.plated strong::after { content: ' ✓'; color: #7f9e6e; }
   .cooking-mode .kitchen-scene { border-radius: 5px; aspect-ratio: 840 / 720; }
   .kitchen-feedback { font-size: 9px; padding-top: 9px; min-height: 32px; }
   .cooking-controls { gap: 6px; padding: 9px 0 9px; min-height: 121px; }
@@ -218,10 +209,6 @@ body.needs-rotation { overflow: hidden; }
   .cook-button { width: 52px; height: 52px; }
   .interact-button { width: 62px; height: 62px; }
   .cook-button > span:not(.chop-meter) { font-size: 7px; }
-  .mobile-recipe { gap: 3px; }
-  .mobile-recipe .recipe-part > img { width: 22px; height: 22px; }
-  .mobile-recipe .recipe-part strong { font-size: 9px; }
-  .mobile-recipe .recipe-part small { font-size: 6px; }
 }
 
 /* The kitchen fills the viewport; thumb controls float over clear floor. */
@@ -263,15 +250,6 @@ body.landscape-play {
 .landscape-play .scene-heading > div { display: none; }
 .landscape-play .scene-heading > .text-button { position: absolute; z-index: 2; bottom: 4px; right: 13px; width: 28px; height: 28px; min-height: 28px; margin: 0; padding: 0; font-size: 0; }
 .landscape-play .scene-heading > .text-button svg { width: 16px; height: 16px; }
-.landscape-play .mobile-recipe { position: absolute; z-index: 2; top: 9px; left: 16px; display: flex; flex-direction: row; align-items: center; gap: 9px; max-width: calc(100% - 180px); height: 35px; padding: 3px 9px; margin: 0; background: #fffdf2ed; border: 1px solid #d4decb; border-radius: 6px; box-shadow: 0 2px 4px #56755c10; }
-.landscape-play .mobile-recipe .recipe-part { display: flex; flex: 0 1 auto; padding: 0; gap: 5px; min-height: 0; }
-.landscape-play .mobile-recipe .recipe-part > img { width: 25px; height: 25px; }
-.landscape-play .unknown-fruit { width: 25px; height: 25px; }
-.landscape-play .mobile-recipe .recipe-part > span:nth-child(2) { gap: 2px; }
-.landscape-play .mobile-recipe .recipe-part strong { font-size: 10px; white-space: nowrap; }
-.landscape-play .mobile-recipe .recipe-part small { font-size: 8px; line-height: 1.4; white-space: nowrap; color: #7c8a70; }
-.landscape-play .mobile-recipe .recipe-part-check { display: none; }
-.landscape-play .mobile-recipe .recipe-part.plated strong::after { content: ' ✓'; color: #6d8c60; }
 .landscape-play .cooking-controls { display: contents; }
 .landscape-play .joystick { position: absolute; z-index: 2; bottom: 16px; left: 24px; margin: 0; width: 104px; height: 104px; background: #f5fae488; border-color: #a4bb8b88; }
 .landscape-play .joystick-knob { width: 44px; height: 44px; inset: calc(50% - 22px); border-width: 3px; }
@@ -356,11 +334,6 @@ body.landscape-play {
   .landscape-play .app-main { padding-top: 0; }
   .landscape-play .joystick { width: 82px; height: 82px; bottom: 12px; left: 20px; }
   .landscape-play .joystick-knob { width: 38px; height: 38px; inset: calc(50% - 19px); }
-  .landscape-play .mobile-recipe { top: 6px; height: 28px; gap: 7px; padding: 2px 7px; }
-  .landscape-play .mobile-recipe .recipe-part { min-height: 0; gap: 3px; }
-  .landscape-play .mobile-recipe .recipe-part > img, .landscape-play .unknown-fruit { width: 21px; height: 21px; }
-  .landscape-play .mobile-recipe .recipe-part strong { font-size: 9px; }
-  .landscape-play .mobile-recipe .recipe-part small { font-size: 7px; }
   .landscape-play .hands-status { top: 8px; gap: 4px; }
   .landscape-play .hands-status > small { display: none; }
   .landscape-play #hands-icon { height: 22px; }
@@ -380,8 +353,6 @@ body.landscape-play {
   .landscape-play .shift-hud { gap: 9px; }
   .landscape-play .shift-clock strong { font-size: 17px; min-width: 48px; }
   .landscape-play .shift-score strong { font-size: 13px; min-width: 62px; }
-  .landscape-play .mobile-recipe { left: 10px; max-width: calc(100% - 145px); }
-  .landscape-play .mobile-recipe .recipe-part > img, .landscape-play .unknown-fruit { display: none; }
   .landscape-play .kitchen-feedback { max-width: calc(100% - 265px); }
 }
 
@@ -511,25 +482,21 @@ body.landscape-play {
   .memory-camera-status { font-size: 9px; line-height: 1.5; }
 }
 
-.mobile-recipe.order-queue {
+.order-strip {
   display: flex;
   align-items: stretch;
   gap: 6px;
   height: 35px;
-  padding: 0;
+  min-width: 0;
   margin: 0 0 9px;
-  background: none;
-  border: 0;
-  border-radius: 0;
-  box-shadow: none;
-  overflow-x: auto;
-  overflow-y: hidden;
-  scrollbar-width: none;
-  overscroll-behavior-x: contain;
-  touch-action: pan-x;
 }
-.order-queue::-webkit-scrollbar { display: none; }
-:is(.rolling-order, .score-fx-ticket) { flex: 0 0 172px; min-width: 0; height: 100%; display: grid; grid-template-rows: 10px 14px 2px; gap: 1px; padding: 3px 6px; border: 1px solid #c6d8cf; border-radius: 4px; background: #fcfefaed; }
+.order-queue { display: flex; flex: 1; min-width: 0; gap: 6px; }
+.order-pagination { display: flex; align-items: stretch; gap: 2px; flex: none; }
+.order-pagination button { display: grid; place-items: center; width: 24px; padding: 0; color: #355e4d; background: #fcfefa; border: 1px solid #c6d8cf; border-radius: 4px; }
+.order-pagination button:disabled { opacity: .6; }
+.order-pagination svg { width: 14px; height: 14px; }
+.order-page-count { align-self: center; min-width: 17px; text-align: center; color: #355e4d; font-size: 9px; font-variant-numeric: tabular-nums; }
+:is(.rolling-order, .score-fx-ticket) { flex: 1 1 0; max-width: 195px; min-width: 0; height: 100%; display: grid; grid-template-rows: 10px 14px 2px; gap: 1px; padding: 3px 6px; border: 1px solid #c6d8cf; border-radius: 4px; background: #fcfefa; }
 .order-heading { display: flex; justify-content: space-between; gap: 6px; align-items: center; line-height: 1; }
 .order-heading .order-sequence { font-size: 8px; }
 .order-time { color: #4f7566; font-size: 9px; font-weight: 600; font-variant-numeric: tabular-nums; }
@@ -563,16 +530,17 @@ body.landscape-play {
 .score-fx-win { color: #9b5c0a; }
 .score-fx-loss { color: #b22c38; }
 .score-fx-pass { padding: 5px 8px; border: 1px solid #92b69d; border-radius: 4px; background: #f1f9e9; color: #376b4f; font-size: 13px; }
-.landscape-play .mobile-recipe.order-queue { margin: 0; }
+.landscape-play .order-strip { position: absolute; z-index: 3; top: 9px; left: 16px; right: 174px; margin: 0; pointer-events: none; }
+.landscape-play .order-pagination button { pointer-events: auto; }
 @media (orientation: landscape) and (max-height: 360px) {
-  .landscape-play .mobile-recipe.order-queue { height: 28px; }
+  .landscape-play .order-strip { top: 6px; height: 28px; }
   :is(.rolling-order, .score-fx-ticket) { grid-template-rows: 9px 11px 2px; gap: 0; padding: 2px 5px; }
   :is(.order-queue, .score-fx-ticket-clip) .order-food :is(.recipe-part > img, .unknown-fruit) { width: 11px; height: 11px; }
   :is(.order-queue, .score-fx-ticket-clip) .order-food .recipe-part strong { font-size: 8px; }
   .score-fx-delta { font-size: 23px; }
 }
 @media (max-width: 620px) {
-  .landscape-play .rolling-order { flex-basis: 152px; }
+  .landscape-play .order-strip { left: 10px; right: 145px; }
   .landscape-play :is(.order-queue, .score-fx-ticket-clip) .order-food :is(.recipe-part > img, .unknown-fruit) { display: none; }
 }
 @media (prefers-reduced-motion: reduce) {

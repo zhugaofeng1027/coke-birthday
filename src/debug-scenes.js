@@ -4,8 +4,15 @@ export const DEBUG_SCENES = {
   candles: { param: 'candle', chapter: 5, label: '吹蜡烛 · 生日蛋糕' },
 };
 
+export const TOUCH_DEMO_PARAM = 'touch-demo';
+
 export function readDebugScene(params) {
   return ['candles', 'flower', 'opening'].find(scene => params.get(DEBUG_SCENES[scene].param) === '1') ?? null;
+}
+
+export function isTouchControlsDemo(params) {
+  return import.meta.env.DEV && params.get(TOUCH_DEMO_PARAM) === '1'
+    && params.get('debug') === '1' && params.get('chapter') === '1' && !readDebugScene(params);
 }
 
 export function setDebugParams(params, { debug, chapter, scene }) {
@@ -18,4 +25,5 @@ export function setDebugParams(params, { debug, chapter, scene }) {
     if (scene) params.set(DEBUG_SCENES[scene].param, '1');
   }
   if (!debug || chapter !== 1 || scene) params.delete('kitchen-polish');
+  if (!debug || chapter !== 0 || scene || !import.meta.env.DEV) params.delete(TOUCH_DEMO_PARAM);
 }

@@ -72,7 +72,14 @@ async function puzzle(page, chapter, order = THEMES[chapter].order) {
   if (theme.answer) {
     for (const id of theme.answer) await page.locator(`[name="choice"][value="${id}"]`).check();
   } else if (theme.order) {
+    const main = page.locator('[name="slot-1"]');
+    await expect(main.locator('option[value="beef"]')).toHaveText('牛肉');
+    await expect(main.locator('option[value="mushroom"]')).toHaveText('蘑菇');
     for (const [i, id] of order.entries()) await page.locator(`[name="slot-${i}"]`).selectOption(id);
+    await main.selectOption(order[1] === 'beef' ? 'mushroom' : 'beef');
+    await page.locator('#kitchen-puzzle-form button[type="submit"]').click();
+    await expect(page.locator('.puzzle-result')).toContainText('和线索还差一点');
+    await main.selectOption(order[1]);
   }
   await page.locator('#kitchen-puzzle-form button[type="submit"]').click();
   await expect(page.locator('.kitchen-puzzle-modal')).toBeHidden();
@@ -515,6 +522,7 @@ for (const { chapter, debug, reducedMotion } of [...DISHES.map((_, chapter) => (
     await page.locator('[data-action="reveal"]').click();
     await expect(page.locator('.gift-modal h2')).toHaveText(['果汁软糖', 'Chiikawa 挂件', '卤货零食大礼盒', '拍立得相纸', '香薰', '古驰香水礼盒'][chapter]);
     await expectRewardFits(page, '.gift-modal', '[data-action="next"]');
+    await expect(page.locator('.gift-modal').getByRole('button', { name: '重玩本关' })).toBeInViewport({ ratio: 1 });
     if (chapter === 0) await page.screenshot({ path: `test-results/${testInfo.project.name}-gift-landscape.png`, animations: 'disabled' });
     await page.locator('[data-action="next"]').click();
     if (debug) {
@@ -597,6 +605,7 @@ test('six kitchens render distinct scenes and readable clues at every viewport',
     }
     await expect(page.locator('.kitchen-puzzle-modal h2')).toHaveText(THEMES[chapter].title);
     await expect(page.locator('.puzzle-clue')).toBeVisible();
+    await expect(page.locator('.meal-alternatives img')).toHaveCount(2);
     expect(await page.locator('.modal').evaluate(el => el.scrollWidth <= el.clientWidth)).toBeTruthy();
     if (THEMES[chapter].order) {
       const reference = await page.locator('.meal-reference').boundingBox();

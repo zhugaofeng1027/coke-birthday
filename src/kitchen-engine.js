@@ -4,7 +4,7 @@ import { paintKitchen } from './kitchen-art.js';
 import { bindCookingControls } from './controls.js';
 import { CHOP_BEAT } from './kitchen-sounds.js';
 
-export function startCooking(host, controlsRoot, kitchen, callbacks, polish = false) {
+export function startCooking(host, controlsRoot, kitchen, callbacks, polish = false, landscapeZoom = 1) {
   let game;
   let scene;
   let player;
@@ -53,8 +53,8 @@ export function startCooking(host, controlsRoot, kitchen, callbacks, polish = fa
     if (!scene || stopped) return;
     const world = worldFor(kitchen);
     const ratio = host.clientWidth / Math.max(1, host.clientHeight);
-    const width = landscape ? Math.ceil(Math.max(world.width, world.height * ratio)) : world.width;
-    const height = landscape ? Math.ceil(Math.max(world.height, world.width / ratio)) : world.height;
+    const width = landscape ? Math.ceil(Math.max(world.width, world.height * ratio) / landscapeZoom) : world.width;
+    const height = landscape ? Math.ceil(Math.max(world.height, world.width / ratio) / landscapeZoom) : world.height;
     if (scene.scale.gameSize.width !== width || scene.scale.gameSize.height !== height) {
       scene.scale.setGameSize(width, height);
       scene.roomTexture.setSize(width, height);

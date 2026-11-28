@@ -1,5 +1,5 @@
 import { createIcons, ArrowLeft, Smartphone, ExternalLink } from 'lucide';
-import { DEBUG_SCENES, readDebugScene, setDebugParams } from './debug-scenes.js';
+import { DEBUG_SCENES, isTouchControlsDemo, readDebugScene, setDebugParams } from './debug-scenes.js';
 import './phone-preview.css';
 
 const sizes = {
@@ -14,6 +14,7 @@ home.searchParams.delete('layout');
 const game = new URL(home);
 game.searchParams.set('layout', 'landscape');
 const scoreDemo = import.meta.env.DEV && game.searchParams.get('score-fx') === '1';
+const touchDemo = !scoreDemo && isTouchControlsDemo(game.searchParams);
 const bentoVersion = game.searchParams.get('kitchen-polish');
 const compare = import.meta.env.DEV && !scoreDemo && game.searchParams.get('debug') === '1'
   && game.searchParams.get('chapter') === '2' && !readDebugScene(game.searchParams) && ['before', 'after'].includes(bentoVersion);
@@ -22,7 +23,7 @@ const app = document.querySelector('#app');
 app.innerHTML = `
   <header class="preview-toolbar${compare ? ' bento-compare' : ''}">
     <a class="preview-icon" id="preview-back" aria-label="返回电脑试玩" title="返回电脑试玩"><i data-lucide="arrow-left"></i></a>
-    <span class="preview-title"><i data-lucide="smartphone"></i>${scoreDemo ? '计分特效小样' : compare ? '厨房质感 Demo' : '手机横屏预览'}</span>
+    <span class="preview-title"><i data-lucide="smartphone"></i>${scoreDemo ? '计分特效小样' : compare ? '厨房质感 Demo' : touchDemo ? '第 1 关 · 手机操作 Demo' : '手机横屏预览'}</span>
     ${compare ? `<select id="bento-version" aria-label="试玩版本" title="切换版本会重开这段试玩">
       <option value="before">原版</option>
       <option value="after">升级版</option>
@@ -69,6 +70,8 @@ window.addEventListener('message', event => {
   if (version?.isConnected && !shell.searchParams.has('kitchen-polish')) {
     version.remove();
     document.querySelector('.preview-toolbar').classList.remove('bento-compare');
+  }
+  if ((compare && !shell.searchParams.has('kitchen-polish')) || (touchDemo && !isTouchControlsDemo(shell.searchParams))) {
     document.querySelector('.preview-title').lastChild.textContent = '手机横屏预览';
   }
   history.replaceState(null, '', shell.href);

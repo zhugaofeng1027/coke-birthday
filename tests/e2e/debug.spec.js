@@ -166,20 +166,35 @@ test('invalid debugging chapter falls back to the first kitchen', async ({ page 
   await expect(page.locator('#kitchen-host')).toHaveAttribute('data-theme', '0');
 });
 
-freshTest('production debugging is opt-in and leaves the ordinary game and shared URL unchanged', async ({ page }, testInfo) => {
+freshTest('production mobile debugging is reachable in both orientations without changing the save or shared URL', async ({ page }, testInfo) => {
   freshTest.skip(!process.env.PRODUCTION_TEST_URL || testInfo.project.name !== 'compact-phone', 'Set a production preview URL to verify the release build.');
   const url = `${process.env.PRODUCTION_TEST_URL}/`;
   await seed(page);
   await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.setViewportSize({ width: 320, height: 568 });
   await page.goto(url);
+  const openingDebug = page.locator('.opening-tools').getByRole('button', { name: '关卡调试' });
+  await expect(openingDebug).toBeInViewport({ ratio: 1 });
+  await openingDebug.tap();
+  await expect(page.locator('#debug-form')).toBeVisible();
+  await page.getByRole('button', { name: '关闭', exact: true }).tap();
   await page.getByRole('button', { name: '跳过开场' }).click();
   await expect(page.locator('#kitchen-host')).toHaveAttribute('data-ready', 'true');
   await expect(page.locator('body')).toHaveAttribute('data-play-mode', 'story');
   await expect(page.locator('#kitchen-host')).toHaveAttribute('data-theme', '1');
-  await expect(page.getByRole('button', { name: '关卡调试', exact: true })).toHaveCount(0);
   await expect(page.locator('[data-action="chapter"][data-index="5"]')).toBeDisabled();
 
-  await page.locator('[data-action="settings"]').click();
+  const portraitDebug = page.locator('.rotation-prompt').getByRole('button', { name: '关卡调试' });
+  await expect(portraitDebug).toBeInViewport({ ratio: 1 });
+  await selectDebug(page, 2);
+  await expect(page.locator('#kitchen-host')).toHaveAttribute('data-theme', '2');
+  await story(page);
+  await expect(page).toHaveURL(url);
+
+  await page.setViewportSize({ width: 568, height: 320 });
+  const landscapeDebug = page.locator('.header-actions').getByRole('button', { name: '关卡调试' });
+  await expect(landscapeDebug).toBeInViewport({ ratio: 1 });
+  await expect(landscapeDebug).toHaveAttribute('aria-pressed', 'false');
   await selectDebug(page, 5);
   await expect(page.locator('#kitchen-host')).toHaveAttribute('data-theme', '5');
   await expect(page).toHaveURL(/debug=1.*chapter=6/);

@@ -99,8 +99,13 @@ const WIDE_STATIONS = Array.from({ length: 6 }, (_, chapter) => chapterStations(
   const [ax, ay] = s.type === 'spice' || spicePlating ? [x + w / 2, y - 26] : WIDE_APPROACHES[s.id] || [x + w / 2, y + h + 22];
   return { ...s, x, y, w, h, approach: { x: ax, y: ay } };
 }));
+const TOUCH_DEMO_STATIONS = WIDE_STATIONS[0].map(s => s.id === 'plates'
+  ? { ...s, x: 180, approach: { x: 243, y: 361 } }
+  : s);
 export function stationsFor(k) {
-  return k?.layout === 'landscape' ? WIDE_STATIONS[k.chapter] : chapterStations(k);
+  return k?.layout === 'landscape'
+    ? k.touchControlsDemo && k.chapter === 0 ? TOUCH_DEMO_STATIONS : WIDE_STATIONS[k.chapter]
+    : chapterStations(k);
 }
 export function worldFor(k) {
   return k.layout === 'landscape' ? LANDSCAPE_WORLD : WORLD;

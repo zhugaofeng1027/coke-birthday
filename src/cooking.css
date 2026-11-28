@@ -23,7 +23,8 @@
 .cooking-mode .chapter { min-height: 69px; }
 .cooking-mode .scene-heading { padding-bottom: 15px; }
 .cooking-mode .scene-heading h2 { font-size: 20px; }
-.cooking-mode .scene-heading > .text-button { min-height: 36px; }
+.scene-heading .replay-round { flex: none; min-height: 36px; padding: 6px 10px; gap: 5px; font-size: 12px; white-space: nowrap; }
+.replay-round svg { width: 15px; height: 15px; }
 .cooking-mode .kitchen-scene { aspect-ratio: 840 / 720; background: #e5eadf; border: 1px solid #dce2d3; border-radius: 7px; touch-action: none; }
 .kitchen-loading { position: absolute; inset: 0; display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 8px; color: #344c40; font-size: 15px; }
 .kitchen-loading p { margin: 0; }
@@ -54,6 +55,7 @@
 .puzzle-result:empty { display: none; }
 .meal-reference { display: flex; justify-content: center; gap: 25px; padding: 10px; background: #edf1ed; }
 .meal-reference > span { display: flex; flex-direction: column; align-items: center; gap: 3px; }
+.meal-alternatives { display: flex; align-items: center; gap: 3px; }
 .meal-reference img, .meal-reference svg { width: 46px; height: 46px; color: #8c9e84; }
 .meal-reference small { font-size: 10px; color: #829387; }
 .kitchen-photo { position: relative; background: #d7e7e5; border: 9px solid #fff; border-bottom-width: 35px; box-shadow: 0 2px 8px #4459501a; max-width: 300px; margin: 14px auto 24px; transform: rotate(-2deg); }
@@ -62,9 +64,11 @@
 .delivered-photo img { width: 55px; height: 55px; }
 .recipe-part { display: flex; align-items: center; gap: 7px; min-width: 0; padding: 9px 0; }
 .recipe-part > img { width: 41px; height: 41px; flex: 0 0 auto; }
-.recipe-part > span:nth-child(2) { display: flex; flex-direction: column; gap: 5px; flex: 1; min-width: 0; }
+.recipe-part-name { display: flex; flex-direction: column; gap: 3px; flex: 1; min-width: 0; }
 .recipe-part strong { font-size: 12px; font-weight: 550; }
-.recipe-part small { font-size: 9px; color: #9aa28c; line-height: 1.6; }
+.recipe-method { --action-size: 17px; display: flex; align-items: center; gap: 2px; }
+.recipe-action { display: grid; place-items: center; flex: 0 0 var(--action-size); width: var(--action-size); height: var(--action-size); font: calc(var(--action-size) - 2px)/1 "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif; }
+.recipe-action[data-method="oven"] { border: 1px solid #edb58a; border-radius: 3px; background: #fff0dc; }
 .recipe-part-check { color: #c7cdbb; opacity: .5; }
 .recipe-part-check svg { width: 15px; height: 15px; }
 .recipe-part.plated .recipe-part-check { color: #7c9d69; opacity: 1; }
@@ -114,6 +118,12 @@
 .kitchen-feedback.gentle { color: #b0916e; }
 .kitchen-feedback.success { color: #7f9c6c; }
 .icon-button.debug-active { color: #a65865; background: #f5e3e7; border-color: #deb5c0; }
+.icon-button.mobile-debug-shortcut { color: #a65865; }
+:is(.header-actions, .opening-tools, .rotation-prompt) .icon-button.mobile-debug-shortcut { display: none; }
+@media (any-pointer: coarse) {
+  :is(.header-actions, .opening-tools, .rotation-prompt) .icon-button.mobile-debug-shortcut { display: inline-flex; }
+}
+.forced-landscape .header-actions .icon-button.mobile-debug-shortcut { display: inline-flex; }
 .icon-button.ending-debug-control { position: fixed; z-index: 10; right: max(12px, env(safe-area-inset-right)); bottom: max(12px, env(safe-area-inset-bottom)); }
 .ending-debug-control[data-tooltip]:hover::after { inset: auto 0 calc(100% + 9px) auto; transform: none; }
 .debug-modal { max-width: 440px; }
@@ -133,6 +143,7 @@
 }
 body.needs-rotation { overflow: hidden; }
 .needs-rotation #app { height: 100dvh; overflow: hidden; }
+.needs-rotation .header-actions [data-action="debug-menu"] { visibility: hidden; }
 .rotation-prompt:not([hidden]) { position: fixed; inset: 0; z-index: 80; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 20px; padding: max(28px, env(safe-area-inset-top)) 24px max(28px, env(safe-area-inset-bottom)); background: #f7f8f5; text-align: center; }
 .rotation-brand { position: absolute; top: max(30px, env(safe-area-inset-top)); display: flex; align-items: center; gap: 8px; color: #6e8266; font-size: 16px; font-weight: 600; }
 .rotation-symbol { position: relative; width: 124px; height: 100px; margin-bottom: 10px; display: grid; place-items: center; color: #d8786b; }
@@ -248,8 +259,8 @@ body.landscape-play {
 .landscape-play .kitchen-scene canvas { position: absolute; }
 .landscape-play .scene-heading { display: contents; }
 .landscape-play .scene-heading > div { display: none; }
-.landscape-play .scene-heading > .text-button { position: absolute; z-index: 2; bottom: 4px; right: 13px; width: 28px; height: 28px; min-height: 28px; margin: 0; padding: 0; font-size: 0; }
-.landscape-play .scene-heading > .text-button svg { width: 16px; height: 16px; }
+.landscape-play .scene-heading .replay-round { position: absolute; z-index: 2; top: 9px; right: 16px; min-height: 36px; margin: 0; padding: 0 7px; font-size: 11px; background: #f6f9ef; }
+.landscape-play .replay-round svg { width: 13px; height: 13px; }
 .landscape-play .cooking-controls { display: contents; }
 .landscape-play .joystick { position: absolute; z-index: 2; bottom: 16px; left: 24px; margin: 0; width: 104px; height: 104px; background: #f5fae488; border-color: #a4bb8b88; }
 .landscape-play .joystick-knob { width: 44px; height: 44px; inset: calc(50% - 22px); border-width: 3px; }
@@ -258,12 +269,12 @@ body.landscape-play {
 .landscape-play .stick-direction.down { bottom: -4px; }
 .landscape-play .stick-direction.left { left: -4px; }
 .landscape-play .stick-direction.right { right: -4px; }
-.landscape-play .hands-status { position: absolute; z-index: 2; top: 12px; right: 18px; padding: 0; gap: 6px; flex-direction: row; max-width: 150px; }
+.landscape-play .hands-status { position: absolute; z-index: 2; top: 15px; right: 106px; padding: 0; gap: 4px; flex-direction: row; max-width: 78px; }
 .landscape-play .hands-status > small, .landscape-play #nearby-station { display: none; }
 .landscape-play #hands-icon { width: 22px; height: 22px; flex: 0 0 22px; }
 .landscape-play #hands-icon svg { width: 18px; height: 18px; }
 .landscape-play #hands-icon img { width: 22px; height: 22px; }
-.landscape-play #hands-name { max-width: 120px; font-size: 10px; line-height: 1.4; text-align: right; }
+.landscape-play #hands-name { min-width: 0; font-size: 10px; line-height: 1.4; text-align: right; overflow-wrap: anywhere; }
 .landscape-play #kitchen-host:is([data-theme="2"], [data-theme="4"]) ~ .cooking-controls :is(#hands-name, #hands-icon) { color: #fff5dd; }
 .landscape-play .cooking-buttons { position: absolute; z-index: 2; bottom: 29px; right: 23px; flex-direction: row; align-items: flex-end; gap: 10px; margin: 0; }
 .landscape-play .cook-button { width: 53px; height: 53px; padding: 0; border: 2px solid #fff6; }
@@ -334,10 +345,10 @@ body.landscape-play {
   .landscape-play .app-main { padding-top: 0; }
   .landscape-play .joystick { width: 82px; height: 82px; bottom: 12px; left: 20px; }
   .landscape-play .joystick-knob { width: 38px; height: 38px; inset: calc(50% - 19px); }
-  .landscape-play .hands-status { top: 8px; gap: 4px; }
+  .landscape-play .hands-status { top: 12px; gap: 3px; }
   .landscape-play .hands-status > small { display: none; }
   .landscape-play #hands-icon { height: 22px; }
-  .landscape-play #hands-name { font-size: 10px; max-width: 104px; }
+  .landscape-play #hands-name { font-size: 10px; }
   .landscape-play #nearby-station { font-size: 8px; }
   .landscape-play .cooking-buttons { gap: 8px; bottom: 26px; right: 20px; }
   .landscape-play .cook-button { width: 44px; height: 44px; }
@@ -486,7 +497,7 @@ body.landscape-play {
   display: flex;
   align-items: stretch;
   gap: 6px;
-  height: 35px;
+  height: 44px;
   min-width: 0;
   margin: 0 0 9px;
 }
@@ -496,15 +507,17 @@ body.landscape-play {
 .order-pagination button:disabled { opacity: .6; }
 .order-pagination svg { width: 14px; height: 14px; }
 .order-page-count { align-self: center; min-width: 17px; text-align: center; color: #355e4d; font-size: 9px; font-variant-numeric: tabular-nums; }
-:is(.rolling-order, .score-fx-ticket) { flex: 1 1 0; max-width: 195px; min-width: 0; height: 100%; display: grid; grid-template-rows: 10px 14px 2px; gap: 1px; padding: 3px 6px; border: 1px solid #c6d8cf; border-radius: 4px; background: #fcfefa; }
+:is(.rolling-order, .score-fx-ticket) { flex: 1 1 0; max-width: 195px; min-width: 0; height: 100%; display: grid; grid-template-rows: 10px minmax(0, 1fr) 2px; gap: 1px; padding: 2px 6px; border: 1px solid #c6d8cf; border-radius: 4px; background: #fcfefa; }
 .order-heading { display: flex; justify-content: space-between; gap: 6px; align-items: center; line-height: 1; }
 .order-heading .order-sequence { font-size: 8px; }
 .order-time { color: #4f7566; font-size: 9px; font-weight: 600; font-variant-numeric: tabular-nums; }
-.order-food { display: flex; align-items: center; gap: 5px; min-width: 0; }
+.order-food { display: flex; align-items: center; gap: 4px; min-width: 0; }
 :is(.order-queue, .score-fx-ticket-clip) .order-food .recipe-part { padding: 0; flex: 0 1 auto; min-height: 0; gap: 2px; }
-:is(.order-queue, .score-fx-ticket-clip) .order-food :is(.recipe-part > img, .unknown-fruit) { width: 14px; height: 14px; }
-:is(.order-queue, .score-fx-ticket-clip) .order-food .unknown-fruit svg { width: 12px; height: 12px; }
-:is(.order-queue, .score-fx-ticket-clip) .order-food .recipe-part strong { font-size: 9px; line-height: 1.2; white-space: nowrap; }
+:is(.order-queue, .score-fx-ticket-clip) .order-food :is(.recipe-part > img, .unknown-fruit) { width: 22px; height: 22px; }
+:is(.order-queue, .score-fx-ticket-clip) .order-food .unknown-fruit svg { width: 82%; height: 82%; }
+:is(.order-queue, .score-fx-ticket-clip) .order-food .recipe-part strong { font-size: 9px; line-height: 1; white-space: nowrap; }
+:is(.order-queue, .score-fx-ticket-clip) .recipe-part-name { gap: 1px; }
+:is(.order-queue, .score-fx-ticket-clip) .recipe-method { --action-size: 12px; }
 :is(.order-queue, .score-fx-ticket-clip) .recipe-part-check { display: none; }
 :is(.order-queue, .score-fx-ticket-clip) .recipe-part.plated strong::after { content: none; }
 .order-patience { height: 2px; background: #e2e9e1; overflow: hidden; }
@@ -530,18 +543,19 @@ body.landscape-play {
 .score-fx-win { color: #9b5c0a; }
 .score-fx-loss { color: #b22c38; }
 .score-fx-pass { padding: 5px 8px; border: 1px solid #92b69d; border-radius: 4px; background: #f1f9e9; color: #376b4f; font-size: 13px; }
-.landscape-play .order-strip { position: absolute; z-index: 3; top: 9px; left: 16px; right: 174px; margin: 0; pointer-events: none; }
+.landscape-play .order-strip { position: absolute; z-index: 3; top: 5px; left: 16px; right: 190px; margin: 0; pointer-events: none; }
 .landscape-play .order-pagination button { pointer-events: auto; }
 @media (orientation: landscape) and (max-height: 360px) {
-  .landscape-play .order-strip { top: 6px; height: 28px; }
-  :is(.rolling-order, .score-fx-ticket) { grid-template-rows: 9px 11px 2px; gap: 0; padding: 2px 5px; }
-  :is(.order-queue, .score-fx-ticket-clip) .order-food :is(.recipe-part > img, .unknown-fruit) { width: 11px; height: 11px; }
-  :is(.order-queue, .score-fx-ticket-clip) .order-food .recipe-part strong { font-size: 8px; }
+  .landscape-play .order-strip { top: 4px; height: 38px; }
+  :is(.rolling-order, .score-fx-ticket) { grid-template-rows: 9px minmax(0, 1fr) 2px; gap: 0; padding: 1px 5px; }
+  :is(.order-queue, .score-fx-ticket-clip) .order-food :is(.recipe-part > img, .unknown-fruit) { width: 21px; height: 21px; }
+  :is(.order-queue, .score-fx-ticket-clip) .recipe-part-name { gap: 0; }
   .score-fx-delta { font-size: 23px; }
 }
 @media (max-width: 620px) {
-  .landscape-play .order-strip { left: 10px; right: 145px; }
-  .landscape-play :is(.order-queue, .score-fx-ticket-clip) .order-food :is(.recipe-part > img, .unknown-fruit) { display: none; }
+  .landscape-play .order-strip { --order-page-ticket-space: 180; left: 10px; right: 180px; }
+  .landscape-play .scene-heading .replay-round { right: 10px; top: 5px; }
+  .landscape-play .hands-status { right: 97px; }
 }
 @media (prefers-reduced-motion: reduce) {
   .rolling-order.order-expiring { animation: none; background: #ffe7df; }
@@ -570,6 +584,8 @@ body.landscape-play {
 .reward-actions .text-input { width: 100%; }
 .reward-actions .primary-button, .reward-footer .primary-button { width: 100%; min-width: 0; white-space: normal; }
 .reward-footer .primary-button { margin: 0; }
+.reward-footer.with-replay { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 8px; }
+.reward-footer.with-replay .secondary-button { padding: 8px; gap: 5px; font-size: 12px; white-space: nowrap; }
 .gift-display { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 0; min-width: 0; gap: 8px; }
 .reward-modal .gift-art { width: min(100%, 280px); aspect-ratio: 1; min-height: 0; }
 .reward-modal .gift-photo { width: 100%; height: 100%; }

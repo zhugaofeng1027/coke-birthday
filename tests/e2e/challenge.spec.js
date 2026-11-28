@@ -1,10 +1,17 @@
 import { test, expect } from './fixtures.js';
 
-test('orders hide preparation instructions and the challenge clock pauses for reading', async ({ page }) => {
+test('orders show preparation emoji and the challenge clock pauses for reading', async ({ page }) => {
   await page.goto('/?debug=1&chapter=2');
   const host = page.locator('#kitchen-host');
   await expect(host).toHaveAttribute('data-ready', 'true');
-  for (const selector of ['.order-queue', '.cooking-recipe']) await expect(page.locator(selector)).not.toContainText(/切配|煮锅|烤箱|秒|新鲜装盘/);
+  for (const selector of ['.order-queue', '.cooking-recipe']) {
+    const parts = page.locator(`${selector} .recipe-part`);
+    for (const [name, emoji, label] of [['米饭', '🍲', '直接煮'], ['鸡肉', '🔪🔥', '切后烤'], ['西兰花', '🔪', '切后装盘']]) {
+      const method = parts.filter({ hasText: name }).locator('.recipe-method');
+      await expect(method).toHaveText(emoji);
+      await expect(method).toHaveAttribute('aria-label', label);
+    }
+  }
   await expect(page.locator('#shift-score')).toHaveText('0 / 200');
   const start = Number(await host.getAttribute('data-time-left'));
   await expect.poll(async () => Number(await host.getAttribute('data-time-left'))).toBeLessThan(start);
@@ -22,6 +29,46 @@ test('orders hide preparation instructions and the challenge clock pauses for re
     expect(box.x).toBeGreaterThanOrEqual(0); expect(box.y).toBeGreaterThanOrEqual(0);
     expect(box.right).toBeLessThanOrEqual(box.width); expect(box.bottom).toBeLessThanOrEqual(box.height);
   }
+});
+
+test('replay is available in every kitchen and resets only the current round', async ({ page }) => {
+  for (const [i, methods] of [
+    ['🔪🍲', '🔥'], ['🍲', '🔪🔥', '🔪'], ['🔪🍲', '🔪🍲'],
+    ['🔪🍲', '🔥', '🔪'], ['🔪🍲', '🔥'], ['🔪🍲', '🔪🔥', '🔪'],
+  ].entries()) {
+    await page.goto(`/?debug=1&chapter=${i + 1}`);
+    await expect(page.getByRole('button', { name: '重玩本关', exact: true })).toBeInViewport({ ratio: 1 });
+    await expect(page.locator('.rolling-order .recipe-method')).toHaveText(methods);
+    if (i === 0) {
+      await expect(page.locator('.rolling-order')).toContainText('神秘双果酱');
+      await expect(page.locator('.rolling-order')).not.toContainText(/草莓|葡萄/);
+    }
+    const layouts = await page.locator('.rolling-order .recipe-part').evaluateAll(parts => parts.map(part => {
+      const icon = part.querySelector('img, .unknown-fruit').getBoundingClientRect();
+      const name = part.querySelector('strong').getBoundingClientRect();
+      const method = part.querySelector('.recipe-method').getBoundingClientRect();
+      return icon.width >= 20 && icon.right <= name.left && name.bottom <= method.top
+        && icon.top <= name.top + 1 && icon.bottom >= method.bottom - 1;
+    }));
+    expect(layouts).toEqual(methods.map(() => true));
+  }
+  await page.addInitScript(() => {
+    localStorage.setItem('birthday-bistro-cooking-v2', JSON.stringify({ completed: [0, 1], finished: false }));
+  });
+  await page.goto('/');
+  const host = page.locator('#kitchen-host');
+  await expect(host).toHaveAttribute('data-ready', 'true');
+  const startsAt = Number(await host.getAttribute('data-time-left'));
+  await expect.poll(async () => Number(await host.getAttribute('data-time-left'))).toBeLessThan(startsAt);
+  await page.getByRole('button', { name: '重玩本关', exact: true }).click();
+  await expect(page.getByRole('heading', { name: '重玩本关？' })).toBeVisible();
+  await page.getByRole('button', { name: '确认重玩' }).click();
+  await expect(host).toHaveAttribute('data-theme', '2');
+  await expect(host).toHaveAttribute('data-ready', 'true');
+  await expect(host).toHaveAttribute('data-score', '0');
+  await expect(host).toHaveAttribute('data-order-ids', '1');
+  await expect(host).toHaveAttribute('data-time-left', String(startsAt));
+  expect(await page.evaluate(() => JSON.parse(localStorage.getItem('birthday-bistro-cooking-v2')).completed)).toEqual([0, 1]);
 });
 
 test('expiry freezes the kitchen, denies gifts and retries with fresh time and score', async ({ page }) => {
@@ -109,7 +156,7 @@ test('rolling orders arrive without delivery, pause for clues and expire with a 
   const cards = page.locator('.rolling-order');
   await expect(cards).toHaveCount(3);
   await expect(cards.nth(0)).toContainText('西兰花');
-  await expect(cards.nth(1)).toContainText('胡萝卜');
+  await expect(cards.nth(1).locator('.recipe-part').filter({ hasText: '胡萝卜' }).locator('.recipe-method')).toHaveText('🔪');
   const countdowns = await page.locator('.order-time').allTextContents();
   expect(new Set(countdowns).size).toBe(3);
   await page.getByRole('button', { name: '查看本关线索', exact: true }).click();
@@ -132,7 +179,7 @@ test('rolling orders arrive without delivery, pause for clues and expire with a 
       const box = card.getBoundingClientRect();
       const food = card.querySelector('.order-food');
       return box.left >= r.left && box.right <= r.right + 1 && box.bottom <= r.bottom + 1
-        && food.scrollWidth <= food.clientWidth + 1;
+        && food.scrollWidth <= food.clientWidth + 1 && food.scrollHeight <= food.clientHeight + 1;
     });
     return { x: r.x, y: r.y, right: r.right, bottom: r.bottom, width: innerWidth, height: innerHeight, cardsFit };
   });
@@ -141,11 +188,13 @@ test('rolling orders arrive without delivery, pause for clues and expire with a 
   expect(queue.cardsFit).toBe(true);
   const nextPage = page.getByRole('button', { name: '下一页订单' });
   if (testInfo.project.name === 'compact-phone') {
+    const counter = page.locator('.order-page-count');
+    await expect(counter).toHaveText(/^1\/[2-9]\d*$/);
     await nextPage.click();
-    await expect(page.locator('.order-page-count')).toHaveText('2/2');
+    await expect(counter).toHaveText(/^2\/[2-9]\d*$/);
     await expect(page.locator('.rolling-order:not([hidden])').first()).toBeInViewport({ ratio: 1 });
     await page.getByRole('button', { name: '上一页订单' }).click();
-    await expect(page.locator('.order-page-count')).toHaveText('1/2');
+    await expect(counter).toHaveText(/^1\/[2-9]\d*$/);
   }
   await page.locator('.order-queue').focus();
   const position = await host.evaluate(el => [el.dataset.playerX, el.dataset.playerY]);

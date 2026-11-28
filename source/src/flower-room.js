@@ -4,9 +4,10 @@ import './flower-room.css';
 
 export const FLOWER_GIFT_NAME = 'DIMOO 手办 + 永生花';
 const LETTER = [
-  '还记得这只 DIMOO 吗？这是我们第一次一起买 DIMOO 时开到的那一款。',
-  '这次，我给它挑了不会凋谢的花。想把那天的开心留久一点，也想长长久久地陪在你身边。',
-  '以后还有好多盒子，想和你一起拆。',
+  '还记得这只DIMOO 吗？这是我们第一次一起买 DIMOO 时开到的那一款。',
+  '我觉得DIMOO的内核很像我，有点怕生，但遇到感兴趣的事情时，又会勇敢地踏出舒适圈。',
+  '其实我接触陌生人一般都会比较i，可能你后面也发现了，但我第一次与你相识的时候，我就很喜欢你，就想着鼓起勇气来想跟你多多接触。',
+  '所以我觉得这只DIMOO就是我的化身，这次呢，我还给它挑了不会凋谢的花，代表着我对你真挚、热烈的感情永不凋谢。',
 ];
 const STEPS = {
   door: ['打烊啦', '还有一个盒子，想和你再拆一次。', '打开盒子', 'enter', 'arrow-right'],
@@ -56,7 +57,7 @@ export function flowerRoomHTML(room, { icon, sender }) {
       <div class="flower-room-story">
         <span class="flower-room-eyebrow">${reveal ? '藏在菜单外的心意' : phase === 'door' ? '生日小厨房 · 打烊后' : '打烊后的花房'}</span>
         <h1 tabindex="-1">${title}</h1>
-        ${reveal ? flowerGiftLetter(sender) : `<p>${line}</p>`}
+        ${reveal ? `<div class="flower-letter-scroll" tabindex="0" aria-label="礼物留言">${flowerGiftLetter(sender)}</div>` : `<p>${line}</p>`}
       </div>
       ${action ? `<button class="primary-button flower-command" data-action="flower-${action}">${icon(symbol)}${label}</button>` :
         `<div class="flower-choices" aria-label="选择一枝花">

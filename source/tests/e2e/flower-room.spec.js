@@ -30,7 +30,12 @@ test('flower room resumes the bouquet and reveals the hidden gift before cake', 
   await expect(page.locator('.flower-room-bar')).toBeInViewport({ ratio: 1 });
   await expect(product).toBeInViewport({ ratio: 1 });
   await expect(action('finish')).toBeInViewport({ ratio: 1 });
-  await expect(scene.locator('.flower-letter')).toContainText('也想长长久久地陪在你身边');
+  await expect(scene.locator('.flower-letter')).toContainText('代表着我对你真挚、热烈的感情永不凋谢。');
+  const signature = scene.locator('.flower-letter span');
+  await signature.scrollIntoViewIfNeeded();
+  await expect(signature).toBeInViewport({ ratio: 1 });
+  await expect(page.locator('.flower-room-bar')).toBeInViewport({ ratio: 1 });
+  await expect(action('finish')).toBeInViewport({ ratio: 1 });
   expect(await product.evaluate(async img => { await img.decode(); return img.naturalWidth; })).toBeGreaterThan(0);
   await page.screenshot({ path: testInfo.outputPath('flower-room-gift.png') });
   await page.reload();

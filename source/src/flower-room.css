@@ -83,6 +83,7 @@
 .flower-letter { font-size: 15px; line-height: 1.7; color: #ebd6be; overflow-wrap: anywhere; }
 .flower-letter p { margin: 0 0 8px; }
 .flower-letter span { color: #bdcbb7; }
+.flower-letter-scroll:focus-visible { outline: 2px solid #b8cdbe; outline-offset: 2px; }
 .flower-command { min-height: 44px; }
 .flower-room .primary-button { background: #f1c591; color: #302923; border-color: #f1c591; font-size: 14px; }
 .flower-room .primary-button:hover { background: #f8d6ad; transform: none; }
@@ -108,6 +109,12 @@
   .flower-room-story h1 { font-size: 24px; margin: 4px 0 6px; }
   .flower-room-story > p, .flower-letter { font-size: 13px; line-height: 1.6; }
   .flower-letter p { margin-bottom: 4px; }
+  .flower-letter-scroll {
+    max-height: max(2.5em, calc(100dvh - 196px - env(safe-area-inset-top) - env(safe-area-inset-bottom)));
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scrollbar-gutter: stable;
+  }
 }
 @media (orientation: landscape) and (max-height: 360px) {
   .flower-room-grid { padding-block: 7px 10px; gap: 12px; grid-template-columns: minmax(0, 1fr) minmax(0, 1.08fr); }

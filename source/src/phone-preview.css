@@ -1,0 +1,33 @@
+:root { font-family: -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', sans-serif; color: #354239; background: #e9eeea; font-synthesis: none; }
+* { box-sizing: border-box; letter-spacing: 0; }
+body { margin: 0; min-width: 320px; height: 100dvh; overflow: hidden; }
+#app { height: 100%; display: flex; flex-direction: column; }
+.preview-toolbar { display: flex; align-items: center; gap: 12px; flex-shrink: 0; padding: 6px 12px; min-height: 52px; background: #fafcf9; border-bottom: 1px solid #d6ded6; }
+.preview-title { display: flex; align-items: center; gap: 7px; font-size: 13px; font-weight: 600; white-space: nowrap; }
+.preview-title svg { width: 17px; height: 17px; color: #788b71; }
+.preview-icon { display: grid; place-items: center; width: 38px; height: 38px; flex: 0 0 auto; border-radius: 5px; color: #6c7c65; }
+.preview-icon:hover { background: #e9eee7; }
+.preview-icon svg { width: 19px; height: 19px; }
+.preview-toolbar select { margin-left: auto; min-width: 0; max-width: 190px; min-height: 36px; padding: 5px 8px; border: 1px solid #d5ded0; border-radius: 5px; background: #fff; color: #52634b; font: inherit; font-size: 12px; }
+#bento-version { margin-left: 0; }
+#preview-scale { min-width: 40px; font-size: 11px; text-align: center; color: #7a8775; }
+.preview-workspace { flex: 1; min-height: 0; display: grid; place-items: center; overflow: hidden; }
+.preview-frame { position: relative; flex-shrink: 0; outline: 1px solid #bdcabb; box-shadow: 0 12px 36px #34534014; }
+.preview-frame iframe { position: absolute; top: 0; left: 0; border: 0; transform-origin: top left; background: #f7f8f5; }
+a:focus-visible, select:focus-visible { outline: 2px solid #849d7a; outline-offset: 2px; }
+@media (max-width: 620px) {
+  .bento-compare { display: grid; grid-template-columns: 38px minmax(0, 1fr) minmax(0, 1fr) 38px; gap: 4px 8px; }
+  .bento-compare .preview-title { grid-area: 1 / 2 / 2 / 4; }
+  .bento-compare #preview-open { grid-area: 1 / 4; }
+  .bento-compare #bento-version { grid-area: 2 / 1 / 3 / 3; }
+  .bento-compare #preview-size { grid-area: 2 / 3 / 3 / 5; }
+  .bento-compare select { width: 100%; max-width: none; margin: 0; }
+  .bento-compare #preview-scale { display: none; }
+}
+@media (max-width: 480px) {
+  .preview-toolbar { gap: 5px; padding: 6px; }
+  .preview-title { font-size: 11px; gap: 3px; }
+  .preview-title > svg { display: none; }
+  .preview-toolbar select { font-size: 11px; padding: 5px 2px; }
+  #preview-scale { display: none; }
+}

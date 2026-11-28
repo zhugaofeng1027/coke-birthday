@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>生日小厨房 · 微信小游戏本地预览</title>
+    <style>
+      * { box-sizing: border-box; }
+      html, body { height: 100%; margin: 0; overflow: hidden; background: #dde7dd; }
+      body { display: grid; place-items: center; }
+      #device { width: min(100vw, 844px); height: min(100dvh, 390px); position: relative; background: #f9faf2; }
+      canvas { display: block; height: 100%; width: 100%; touch-action: none; }
+      .capsule { position: absolute; top: 6px; right: 10px; width: 76px; height: 26px; border-radius: 20px; border: 1px solid #87998870; display: flex; align-items: center; justify-content: space-evenly; font: 15px sans-serif; color: #39483e; pointer-events: none; }
+      .capsule > span:first-child { font-weight: bold; }
+    </style>
+  </head>
+  <body>
+    <div id="device"><div class="capsule" aria-hidden="true"><span>···</span><span>◉</span></div></div>
+    <script type="module" src="./preview.js"></script>
+  </body>
+</html>

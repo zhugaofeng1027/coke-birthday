@@ -1,0 +1,26 @@
+{
+  "name": "birthday-bistro",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host 0.0.0.0",
+    "build": "vite build",
+    "build:wechat": "node minigame/build.js",
+    "dev:wechat": "vite --config minigame/vite.config.js",
+    "preview": "vite preview --host 0.0.0.0",
+    "test": "node --test tests/*.test.js",
+    "test:wechat": "playwright test -c minigame/playwright.config.js",
+    "test:e2e": "playwright test"
+  },
+  "dependencies": {
+    "lucide": "^0.468.0",
+    "phaser": "^3.90.0",
+    "qrcode": "^1.5.4"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.56.0",
+    "fft.js": "^4.0.4",
+    "vite": "^7.0.0"
+  }
+}
